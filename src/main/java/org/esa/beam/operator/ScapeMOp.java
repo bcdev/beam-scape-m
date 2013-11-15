@@ -25,6 +25,28 @@ public class ScapeMOp extends Operator {
     @Override
     public void initialize() throws OperatorException {
 
+        // transform IDL procedure 'derive_AtmPar_Refl' to Java...:
+
+        // 1. AOT retrieval on 30x30km cells:
+        //      - apply 'cloud mask 2' over all pixels in cell
+        //      - consider only cells with more than 35% cloud-free land pixels
+        //      - compute VISIBILITY for those cells  (--> 'interpol_lut')
+        //      - refinement of AOT retrieval:
+        //          ** in given cell, consider only land pixels defined from 'cloud mask 1'
+        //          ** from these, determine 5 'reference pixels' ( --> 'extract_ref_pixels')
+        //             and derive visibility from them ( --> 'inversion_MERIS_AOT')
+        //      - fill gaps (<35% land): interpolate from surrounding cells ( --> 'fill_gaps_vis_new')
+        //      - spatial smoothing by cubic convolution
+        //      - conversion visibility --> AOT550
+
+        // 2. CWV retrieval:
+        //      - minimise 'Merit' function with Brent method ( --> 'ZBRENT', 'chisq_merisWV')
+        //
+        // 3. Reflectance retrieval:
+        //      - from LUT (--> 'interpol_lut' called from  'derive_AtmPar_Refl'), but using
+        //        different approach for bands 2, 11, 15 (see paper)
+        //
+
     }
 
 
