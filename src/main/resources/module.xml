@@ -1,0 +1,61 @@
+<module>
+    <manifestVersion>1.0.0</manifestVersion>
+    <symbolicName>beam-scape-m</symbolicName>
+    <version>1.0</version>
+    <name>SCAPE-M</name>
+
+    <description>
+        <![CDATA[
+            <p>todo</p>
+            <p>Software: O.Danne, T.Fincke of Brockmann Consult</p>
+    ]]>
+    </description>
+
+    <vendor>Brockmann Consult GmbH</vendor>
+    <contactAddress>Max Planck Str.2, 21502 Geesthacht (Germany)</contactAddress>
+    <copyright>(C) 2013 by Brockmann Consult GmbH</copyright>
+    <url>http://envisat.esa.int/beam</url>
+    <licenseUrl>http://www.gnu.org/licenses/gpl.html</licenseUrl>
+
+    <changelog>
+        <![CDATA[
+        <p>Changes in version 1.0<br/>
+        - Initial version
+        </p>
+        ]]>
+    </changelog>
+
+    <dependency>
+        <module>beam-gpf</module>
+    </dependency>
+    <dependency>
+        <module>beam-netcdf</module>
+    </dependency>
+    <dependency>
+        <module>beam-visat-rcp</module>
+        <optional>true</optional>
+    </dependency>
+   
+    <categories>Processor</categories>
+
+    <extension point="beam-ui:actions">
+        <action>
+            <id>correctAtmosphereScapeM</id>
+            <class>org.esa.beam.operator.ui.ScapeMAction</class>
+            <text>SCAPE-M Atmospheric Correction (MERIS)...</text>
+            <shortDescr>SCAPE-M AC.</shortDescr>
+            <longDescr>Provides MERIS atmospheric correction with SCAPE-M algorithm.</longDescr>
+            <mnemonic/>
+            <parent>tools</parent>
+            <helpId>scapeM</helpId>
+        </action>
+    </extension>
+
+    <extension point="beam-ui:helpSets">
+        <helpSet>
+            <parent>beam-help</parent>
+            <path>doc/help/scape-m.hs</path>
+        </helpSet>
+    </extension>
+
+</module>
