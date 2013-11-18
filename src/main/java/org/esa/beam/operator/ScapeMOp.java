@@ -8,7 +8,7 @@ import org.esa.beam.framework.gpf.annotations.OperatorMetadata;
 import org.esa.beam.framework.gpf.annotations.SourceProduct;
 
 /**
- * Master operator for preparation/modification of various Diversity auxdata
+ * Operator for MERIS atmospheric correction with SCAPE-M algorithm.
  *
  * @author olafd
  */
@@ -28,6 +28,11 @@ public class ScapeMOp extends Operator {
         // transform IDL procedure 'derive_AtmPar_Refl' to Java...:
 
         // 1. AOT retrieval on 30x30km cells:
+        //      - set 30x30km cell grid. residuals in last column/row are filled to previous cells,
+        //          so cell indices should be e.g. like this for y dim in case of SCENE_HEIGHT=305 (same for x dim):
+        //          IDL> PRINT, y_end_arr
+        //                  29          59          89         119         149
+        //                  179         209         239         269         304
         //      - apply 'cloud mask 2' over all pixels in cell
         //      - consider only cells with more than 35% cloud-free land pixels
         //      - compute VISIBILITY for those cells  (--> 'interpol_lut')
