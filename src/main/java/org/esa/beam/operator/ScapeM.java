@@ -6,4 +6,7 @@ package org.esa.beam.operator;
  * @author Tonio Fincke, Olaf Danne
  */
 public class ScapeM {
+
+    // Auxdata
+    private AtmParamLookupTable atmParamLut;
 }

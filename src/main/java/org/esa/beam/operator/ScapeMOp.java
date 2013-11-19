@@ -1,10 +1,12 @@
 package org.esa.beam.operator;
 
+import org.esa.beam.ScapeMMode;
 import org.esa.beam.framework.datamodel.Product;
 import org.esa.beam.framework.gpf.Operator;
 import org.esa.beam.framework.gpf.OperatorException;
 import org.esa.beam.framework.gpf.OperatorSpi;
 import org.esa.beam.framework.gpf.annotations.OperatorMetadata;
+import org.esa.beam.framework.gpf.annotations.Parameter;
 import org.esa.beam.framework.gpf.annotations.SourceProduct;
 
 /**
@@ -18,6 +20,12 @@ import org.esa.beam.framework.gpf.annotations.SourceProduct;
                   description = "Operator for MERIS atmospheric correction with SCAPE-M algorithm.")
 public class ScapeMOp extends Operator {
     public static final String VERSION = "1.0-SNAPSHOT";
+
+    @Parameter(description = "AOT processing mode", defaultValue = "SHORT")
+    private ScapeMMode aotMode;
+
+    @Parameter(description = "CWV processing mode", defaultValue = "SHORT")
+    private ScapeMMode cwvMode;
 
     @SourceProduct(description = "MERIS L1B product")
     private Product sourceProduct;
