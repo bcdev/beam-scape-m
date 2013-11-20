@@ -1,5 +1,8 @@
 package org.esa.beam.operator;
 
+
+import org.esa.beam.util.math.LookupTable;
+
 /**
  * Class representing SCAPE-M algorithm
  *
@@ -8,5 +11,5 @@ package org.esa.beam.operator;
 public class ScapeM {
 
     // Auxdata
-    private AtmParamLookupTable atmParamLut;
+    private LookupTable atmParamLut;
 }

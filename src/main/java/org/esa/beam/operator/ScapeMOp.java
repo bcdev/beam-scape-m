@@ -12,7 +12,7 @@ import org.esa.beam.framework.gpf.annotations.SourceProduct;
 /**
  * Operator for MERIS atmospheric correction with SCAPE-M algorithm.
  *
- * @author olafd
+ * @author Tonio Fincke, Olaf Danne
  */
 @OperatorMetadata(alias = "beam.scapeM", version = "1.0-SNAPSHOT",
                   authors = "Tonio Fincke, Olaf Danne",
