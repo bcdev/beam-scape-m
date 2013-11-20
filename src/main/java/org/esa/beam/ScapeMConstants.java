@@ -7,7 +7,7 @@ package org.esa.beam;
  */
 public class ScapeMConstants {
 
-    public final static float[] MERIS_WAVELENGHTS = {
+    public final static float[] MERIS_WAVELENGTHS = {
             412.545f, 442.401f, 489.744f, 509.7f, 559.634f,
             619.62f, 664.64f, 680.902f, 708.426f, 753.472f,
             761.606f, 778.498f, 864.833f, 884.849f, 899.86f

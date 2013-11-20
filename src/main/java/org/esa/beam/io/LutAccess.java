@@ -1,6 +1,7 @@
 package org.esa.beam.io;
 
 import org.esa.beam.ScapeMConstants;
+import org.esa.beam.util.math.FracIndex;
 import org.esa.beam.util.math.LookupTable;
 
 import javax.imageio.stream.ImageInputStream;
@@ -83,7 +84,7 @@ public class LutAccess {
 
             float[] parameters = new float[]{1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f};
             int nParameters = parameters.length;
-            float[] wvl = ScapeMConstants.MERIS_WAVELENGHTS;
+            float[] wvl = ScapeMConstants.MERIS_WAVELENGTHS;
             int nWvl = wvl.length;
 
             float[] lut = new float[nParameters * nVza * nSza * nRaa * nHsf * nVis * nCwv * nWvl];
@@ -113,4 +114,40 @@ public class LutAccess {
         }
     }
 
+    /**
+     * 6-D linear interpolation: returns 15x7 array ('f_ind' in IDL code)
+     * as a function of [vza, sza, phi, hsf, aot] from the interpolation of the Atmospheric parameters LUT
+     */
+    public static double[][] interpolAtmParamLut(LookupTable atmParamLut,
+                                                 double vza,
+                                                 double sza,
+                                                 double raa,
+                                                 double hsf,
+                                                 double vis,
+                                                 double cwv) {
+        final float[] wvl = ScapeMConstants.MERIS_WAVELENGTHS;
+        final double[] params = atmParamLut.getDimension(6).getSequence();
+        double[][] result = new double[wvl.length][7];
+
+        int lutDimensionCount = atmParamLut.getDimensionCount();
+        FracIndex[] fracIndices = FracIndex.createArray(lutDimensionCount);
+        double[] v = new double[1 << lutDimensionCount];
+
+        LookupTable.computeFracIndex(atmParamLut.getDimension(0), vza, fracIndices[0]);
+        LookupTable.computeFracIndex(atmParamLut.getDimension(1), sza, fracIndices[1]);
+        LookupTable.computeFracIndex(atmParamLut.getDimension(2), raa, fracIndices[2]);
+        LookupTable.computeFracIndex(atmParamLut.getDimension(3), hsf, fracIndices[3]);
+        LookupTable.computeFracIndex(atmParamLut.getDimension(4), vis, fracIndices[4]);
+        LookupTable.computeFracIndex(atmParamLut.getDimension(5), cwv, fracIndices[5]);
+
+        for (int i = 0; i < result.length; i++) {
+            int index = 0;
+            LookupTable.computeFracIndex(atmParamLut.getDimension(7), wvl[i], fracIndices[7]);
+            for (double param : params) {
+                LookupTable.computeFracIndex(atmParamLut.getDimension(6), param, fracIndices[6]);
+                result[i][index++] = atmParamLut.getValue(fracIndices, v);
+            }
+        }
+        return result;
+    }
 }

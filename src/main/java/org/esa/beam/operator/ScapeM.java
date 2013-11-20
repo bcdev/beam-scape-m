@@ -10,6 +10,5 @@ import org.esa.beam.util.math.LookupTable;
  */
 public class ScapeM {
 
-    // Auxdata
-    private LookupTable atmParamLut;
+
 }
