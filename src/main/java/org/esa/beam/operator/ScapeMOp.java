@@ -26,12 +26,15 @@ import org.esa.beam.meris.l2auxdata.L2AuxData;
 import org.esa.beam.meris.l2auxdata.L2AuxDataProvider;
 import org.esa.beam.util.BitSetter;
 import org.esa.beam.util.ProductUtils;
+import org.esa.beam.util.ScapeMUtils;
 import org.esa.beam.util.math.LookupTable;
 import org.esa.beam.watermask.operator.WatermaskClassifier;
 
 import javax.media.jai.BorderExtender;
+import javax.media.jai.JAI;
 import java.awt.*;
 import java.io.IOException;
+import java.util.Calendar;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -75,22 +78,7 @@ public class ScapeMOp extends MerisBasisOp implements Constants {
     private Band[] reflBands;
     private Band flagBand;
 
-    // Auxdata
     protected L2AuxData l2AuxData;
-    protected LookupTable atmParamLut;
-
-    private double vzaMin;
-    private double vzaMax;
-    private double szaMin;
-    private double szaMax;
-    private double raaMin;
-    private double raaMax;
-    private double hsfMin;
-    private double hsfMax;
-    private double visMin;
-    private double visMax;
-    private double cwvMin;
-    private double cwvMax;
 
     private WatermaskClassifier classifier;
     private static int WATERMASK_RESOLUTION_DEFAULT = 50;
@@ -98,6 +86,7 @@ public class ScapeMOp extends MerisBasisOp implements Constants {
     private ElevationModel elevationModel;
 
     private Product cloudProduct;
+
 
 
     @Override
@@ -108,6 +97,7 @@ public class ScapeMOp extends MerisBasisOp implements Constants {
         } catch (Exception e) {
             throw new OperatorException("could not load L2Auxdata", e);
         }
+//        JAI.getDefaultInstance().getTileScheduler().setParallelism(1);
 
         try {
             classifier = new WatermaskClassifier(WATERMASK_RESOLUTION_DEFAULT);
@@ -122,13 +112,11 @@ public class ScapeMOp extends MerisBasisOp implements Constants {
         elevationModel = demDescriptor.createDem(Resampling.NEAREST_NEIGHBOUR);
 
         createTargetProduct();
-        readAuxdata();
 
         // get the cloud product from Idepix...
         Map<String, Product> idepixInput = new HashMap<String, Product>(4);
-        idepixInput.put("l1b", sourceProduct);
+        idepixInput.put("source", sourceProduct);
         Map<String, Object> params = new HashMap<String, Object>(1);
-//        params.put("ctpMode", ctpMode);
         cloudProduct = GPF.createProduct(OperatorSpi.getOperatorAlias(FubScapeMOp.class), params, idepixInput);
 
 
@@ -168,16 +156,22 @@ public class ScapeMOp extends MerisBasisOp implements Constants {
         final GeoCoding geoCoding = sourceProduct.getGeoCoding();
 
         final Tile szaTile = getSourceTile(sourceProduct.getTiePointGrid(EnvisatConstants.MERIS_SUN_ZENITH_DS_NAME), targetRect,
-                                 BorderExtender.createInstance(BorderExtender.BORDER_COPY));
+                                           BorderExtender.createInstance(BorderExtender.BORDER_COPY));
         final Tile vzaTile = getSourceTile(sourceProduct.getTiePointGrid(EnvisatConstants.MERIS_VIEW_ZENITH_DS_NAME), targetRect,
-                                 BorderExtender.createInstance(BorderExtender.BORDER_COPY));
+                                           BorderExtender.createInstance(BorderExtender.BORDER_COPY));
         final Tile saaTile = getSourceTile(sourceProduct.getTiePointGrid(EnvisatConstants.MERIS_SUN_AZIMUTH_DS_NAME), targetRect,
                                            BorderExtender.createInstance(BorderExtender.BORDER_COPY));
         final Tile vaaTile = getSourceTile(sourceProduct.getTiePointGrid(EnvisatConstants.MERIS_VIEW_AZIMUTH_DS_NAME), targetRect,
                                            BorderExtender.createInstance(BorderExtender.BORDER_COPY));
 
-        final Tile cloudFlagsTile = getSourceTile(cloudProduct.getBand(FubScapeMClassificationOp.CLOUD_FLAGS), targetRect,
-                                        BorderExtender.createInstance(BorderExtender.BORDER_COPY));
+        final int spectralBandIndex = targetBand.getSpectralBandIndex();
+        final String srcBandName = RADIANCE_BAND_PREFIX + "_" + (spectralBandIndex + 1);
+        final Tile radianceTile = getSourceTile(sourceProduct.getBand(srcBandName), targetRect);
+
+        // todo: activate when cloud mask is ready
+        final Tile cloudFlagsTile = null;
+//        final Tile cloudFlagsTile = getSourceTile(cloudProduct.getBand(FubScapeMClassificationOp.CLOUD_FLAGS), targetRect,
+//                                        BorderExtender.createInstance(BorderExtender.BORDER_COPY));
 
         final boolean cellIsClear = scapeMCorrection.isCellClearLand(targetRect, geoCoding, cloudFlagsTile, classifier);
 
@@ -195,7 +189,20 @@ public class ScapeMOp extends MerisBasisOp implements Constants {
 
             try {
                 final double hsurf = scapeMCorrection.getHsurfMeanCell(targetRect, geoCoding, classifier, elevationModel);
+//                if no illumination, mus_il = mat_cos = cos(sza_img * !dtor):
                 final double musIl = scapeMCorrection.getCosSzaMeanCell(targetRect, geoCoding, classifier, szaTile);
+
+                final int doy = sourceProduct.getStartTime().getAsCalendar().get(Calendar.DAY_OF_YEAR);
+                if (targetRect.x == 30 && targetRect.y == 0) {
+                    System.out.println("targetRect = " + targetRect);
+                }
+                double toaMinCell =
+                        scapeMCorrection.getToaMinCell(radianceTile, targetRect, geoCoding, doy, spectralBandIndex, classifier);
+                System.out.println();
+
+                // now get first visibility estimate...
+                double firstVisibility = scapeMCorrection.getFirstVisibility(toaMinCell, vza, sza, phi, hsurf);
+
 
             } catch (Exception e) {
                 // todo
@@ -213,7 +220,7 @@ public class ScapeMOp extends MerisBasisOp implements Constants {
 //            rad_sub_arr = fltarr(cont_land_all, num_bd)
 //            for jj = 0, num_bd - 1 do rad_sub_arr[*, jj] = rad_sub[wh_land_all + jj * tot_pix] * fac * cal_coef[jj]
 //
-//            min_toa = min(rad_sub_arr, dimension=1)
+//            min_toa = min(rad_sub_arr, dimension=1)           OK UP TO THIS POINT  !!!
 //
 //            n_vis = where(wl_center gt 680.)
 //            n_vis = n_vis[0]
@@ -313,46 +320,7 @@ public class ScapeMOp extends MerisBasisOp implements Constants {
     }
 
 
-    void readAuxdata() {
-        try {
-            atmParamLut = LutAccess.getAtmParmsLookupTable();
-        } catch (IOException e) {
-            throw new OperatorException(e.getMessage());
-        }
 
-        final double[] vzaArray = atmParamLut.getDimension(0).getSequence();
-        vzaMin = vzaArray[0];
-        vzaMax = vzaArray[vzaArray.length - 1];
-
-        final double[] szaArray = atmParamLut.getDimension(1).getSequence();
-        szaMin = szaArray[0];
-        szaMax = szaArray[szaArray.length - 1];
-
-        final double[] raaArray = atmParamLut.getDimension(2).getSequence();
-        raaMin = raaArray[0];
-        raaMax = raaArray[raaArray.length - 1];
-
-        final double[] hsfArray = atmParamLut.getDimension(3).getSequence();
-        hsfMin = hsfArray[0];
-        hsfMax = hsfArray[hsfArray.length - 1];
-
-        final double[] visArray = atmParamLut.getDimension(4).getSequence();
-        visMin = visArray[0];
-        visMax = visArray[visArray.length - 1];
-
-        final double[] cwvArray = atmParamLut.getDimension(5).getSequence();
-        cwvMin = cwvArray[0];
-        cwvMax = cwvArray[cwvArray.length - 1];
-    }
-
-    private boolean isOutsideLutRange(double vza, double sza, double raa, double hsf, double vis, double cwv) {
-        return (vza < vzaMin || vza > vzaMax) ||
-                (sza < szaMin || sza > szaMax) ||
-                (raa < raaMin || raa > raaMax) ||
-                (hsf < hsfMin || hsf > hsfMax) ||
-                (vis < visMin || vis > visMax) ||
-                (cwv < cwvMin || cwv > cwvMax);
-    }
 
 
     public static class Spi extends OperatorSpi {
