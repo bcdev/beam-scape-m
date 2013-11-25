@@ -61,32 +61,34 @@ public class ScapeMCorrection implements Constants {
      * @param classifier
      * @return
      */
-    boolean isCellClearLand(Rectangle rect, GeoCoding geoCoding, Tile cloudFlags, WatermaskClassifier classifier) {
+    boolean isCellClearLand(Rectangle rect,
+                            GeoCoding geoCoding,
+                            Tile cloudFlags,
+                            WatermaskClassifier classifier,
+                            double percentage) {
         int countWater = 0;
         int countCloud2 = 0;
         for (int y = rect.y; y < rect.y + rect.height; y++) {
             for (int x = rect.x; x < rect.x + rect.width; x++) {
-                // todo: activate when cloud mask is ready
-//                if (cloudFlags.getSampleBit(x, y, FubScapeMClassificationOp.F_CLOUD_2)) {
-//                    countCloud2++;
-//                }
+                if (cloudFlags.getSampleBit(x, y, 1)) {   // mask_land_all !!
+                    countCloud2++;
+                }
 
                 GeoPos geoPos = null;
                 if (geoCoding.canGetGeoPos()) {
                     geoPos = geoCoding.getGeoPos(new PixelPos(x, y), geoPos);
-                    // todo: activate when cloud mask is ready
-//                    try {
-//                        if (classifier.isWater(geoPos.lat, geoPos.lon) &&
-//                                !cloudFlags.getSampleBit(x, y, FubScapeMClassificationOp.F_LAKE)) {
-//                            countWater++;
-//                        }
-//                    } catch (IOException ignore) {
-//                    }
+                    try {
+                        if (classifier.isWater(geoPos.lat, geoPos.lon) &&
+                                !cloudFlags.getSampleBit(x, y, 2)) {  // todo: check which is the lakes bit
+                            countWater++;
+                        }
+                    } catch (IOException ignore) {
+                    }
                 }
 
             }
         }
-        return (countCloud2 + countWater) / (rect.getWidth() * rect.getHeight()) <= 0.65;
+        return (countCloud2 + countWater) / (rect.getWidth() * rect.getHeight()) <= (1.0 - percentage);
     }
 
     /**
@@ -94,22 +96,21 @@ public class ScapeMCorrection implements Constants {
      *
      * @return
      */
-    double getHsurfMeanCell(Rectangle rect,
+    double getHsurfMeanCell(double[][] hSurfCell,
                             GeoCoding geoCoding,
-                            WatermaskClassifier classifier,
-                            ElevationModel elevationModel) throws Exception {
+                            WatermaskClassifier classifier) throws Exception {
 
-        double elevMean = 0.0;
-        int elevCount = 0;
-        for (int y = rect.y; y < rect.y + rect.height; y++) {
-            for (int x = rect.x; x < rect.x + rect.width; x++) {
+        double hsurfMean = 0.0;
+        int hsurfCount = 0;
+        for (int y = 0; y < hSurfCell[0].length; y++) {
+            for (int x = 0; x < hSurfCell.length; x++) {
                 GeoPos geoPos = null;
                 if (geoCoding.canGetGeoPos()) {
                     geoPos = geoCoding.getGeoPos(new PixelPos(x, y), geoPos);
                     try {
                         if (!classifier.isWater(geoPos.lat, geoPos.lon)) {
-                            elevMean += elevationModel.getElevation(geoPos);
-                            elevCount++;
+                            hsurfMean += hSurfCell[x][y];
+                            hsurfCount++;
                         }
                     } catch (IOException ignore) {
                     }
@@ -117,26 +118,44 @@ public class ScapeMCorrection implements Constants {
             }
         }
 
-        double hSurf = 0.001 * elevMean / elevCount;    // km
-        return hSurf;
+        return hsurfMean / hsurfCount;    // km
     }
 
-    double getCosSzaMeanCell(Rectangle rect,
-                             GeoCoding geoCoding,
-                             WatermaskClassifier classifier,
-                             Tile szaTile) throws Exception {
+    double[][] getHsurfArrayCell(Rectangle rect,
+                                 GeoCoding geoCoding,
+                                 WatermaskClassifier classifier,
+                                 ElevationModel elevationModel) throws Exception {
 
-        double cosSzaMean = 0.0;
-        int cosSzaCount = 0;
+        double[][] hSurf = new double[rect.width][rect.height];
         for (int y = rect.y; y < rect.y + rect.height; y++) {
             for (int x = rect.x; x < rect.x + rect.width; x++) {
                 GeoPos geoPos = null;
                 if (geoCoding.canGetGeoPos()) {
                     geoPos = geoCoding.getGeoPos(new PixelPos(x, y), geoPos);
+                    hSurf[x - rect.x][y - rect.y] = 0.001 * elevationModel.getElevation(geoPos);
+                } else {
+                    hSurf[x - rect.x][y - rect.y] = Double.NaN;
+                }
+            }
+        }
+        return hSurf;
+    }
+
+
+    double getCosSzaMeanCell(double[][] cosSzaCell,
+                             GeoCoding geoCoding,
+                             WatermaskClassifier classifier) throws Exception {
+
+        double cosSzaMean = 0.0;
+        int cosSzaCount = 0;
+        for (int y = 0; y < cosSzaCell[0].length; y++) {
+            for (int x = 0; x < cosSzaCell.length; x++) {
+                GeoPos geoPos = null;
+                if (!(cosSzaCell[x][y] == Double.NaN)) {
+                    geoPos = geoCoding.getGeoPos(new PixelPos(x, y), geoPos);
                     try {
                         if (!classifier.isWater(geoPos.lat, geoPos.lon)) {
-                            final double sza = szaTile.getSampleDouble(x, y);
-                            cosSzaMean += Math.cos(sza * MathUtils.DTOR);
+                            cosSzaMean += cosSzaCell[x][y];
                             cosSzaCount++;
                         }
                     } catch (IOException ignore) {
@@ -148,18 +167,44 @@ public class ScapeMCorrection implements Constants {
         return cosSzaMean / cosSzaCount;
     }
 
-    double getToaMinCell(Tile radianceTile,
-                         Rectangle rect,
-                         GeoCoding geoCoding,
-                         int doy,
-                         int spectralBandIndex,
-                         WatermaskClassifier classifier) throws Exception {
+    double[][] getCosSzaArrayCell(Rectangle rect,
+                                  Tile szaTile) throws Exception {
 
+        double[][] cosSza = new double[rect.width][rect.height];
+        for (int y = rect.y; y < rect.y + rect.height; y++) {
+            for (int x = rect.x; x < rect.x + rect.width; x++) {
+                final double sza = szaTile.getSampleDouble(x, y);
+                cosSza[x - rect.x][y - rect.y] = Math.cos(sza * MathUtils.DTOR);
+            }
+        }
+
+        return cosSza;
+    }
+
+    double getToaMinCell(double[][] toaArrayCell) throws Exception {
+        double toaMin = Double.MAX_VALUE;
+        for (int y = 0; y < toaArrayCell[0].length; y++) {
+            for (int x = 0; x < toaArrayCell.length; x++) {
+                if (!(toaArrayCell[x][y] == Double.NaN)) {
+                    if (toaArrayCell[x][y] < toaMin) {
+                        toaMin = toaArrayCell[x][y];
+                    }
+                }
+            }
+        }
+        return toaMin;
+    }
+
+    double[][] getToaArrayCell(Tile radianceTile,
+                               Rectangle rect,
+                               GeoCoding geoCoding,
+                               int doy,
+                               WatermaskClassifier classifier) throws Exception {
+
+        double[][] toa = new double[rect.width][rect.height];
         double varSol = ScapeMUtils.varSol(doy);
         final double solFactor = varSol * varSol * 1.E-4;
 
-        double toaMin = Double.MAX_VALUE;
-        int index = 0;
         for (int y = rect.y; y < rect.y + rect.height; y++) {
             for (int x = rect.x; x < rect.x + rect.width; x++) {
                 GeoPos geoPos = null;
@@ -167,61 +212,129 @@ public class ScapeMCorrection implements Constants {
                     geoPos = geoCoding.getGeoPos(new PixelPos(x, y), geoPos);
                     try {
                         if (!classifier.isWater(geoPos.lat, geoPos.lon)) {
-//                            double toa = radianceTile.getSampleDouble(x, y) * solFactor * ScapeMConstants.MERIS_CAL_COEFFS[spectralBandIndex];
-                            double toa = radianceTile.getSampleDouble(x, y) * solFactor;
-//                            System.out.println("index, toa = " + index + "," + toa);
-                            if (toa < toaMin) {
-                                toaMin = toa;
-                            }
+                            toa[x - rect.x][y - rect.y] = radianceTile.getSampleDouble(x, y) * solFactor;
+                        } else {
+                            toa[x - rect.x][y - rect.y] = Double.NaN;
                         }
                     } catch (IOException ignore) {
                     }
+                } else {
+                    toa[x - rect.x][y - rect.y] = Double.NaN;
                 }
-                index++;
             }
         }
-
-        return toaMin;
+        return toa;
     }
 
-
-    public double getFirstVisibility(double toaMinCell, double vza, double sza, double raa, double hsf) {
+    /**
+     * gets the visibility for a 30x30km cell
+     *
+     * @param toaArrayCell
+     * @param toaMinCell
+     * @param vza
+     * @param sza
+     * @param raa
+     * @param hsurfArrayCell
+     * @param hsurfMeanCell
+     * @param cosSzaArrayCell
+     * @param cosSzaMeanCell
+     * @param cellIsClear45Percent
+     * @return
+     */
+    public double getCellVisibility(double[][][] toaArrayCell,
+                                    double[] toaMinCell, double vza, double sza, double raa,
+                                    double[][] hsurfArrayCell,
+                                    double hsurfMeanCell,
+                                    double[][] cosSzaArrayCell, // mus_il_sub
+                                    double cosSzaMeanCell, // mus_il
+                                    boolean cellIsClear45Percent) {
 
         final int nVis = 7;
         final double[] step = {1.0, 0.1};
 
         double vis = visArray[0] - step[0];
-        for (int i=0; i<=1; i++) {
+        for (int i = 0; i <= 1; i++) {
             if (i == 1) {
                 vis = Math.max(vis - step[0], visArray[0]);
             }
-            while (vis + step[i] < visArray[i]) {
+            //        repeat begin
+            //        vis = vis + stp[i]   ; OD: vis = 10.0 if i=0
+            //        f_int = interpol_lut(vza, sza, phi, hsurf, vis, wv)  ; OD: I understand that this result represents a 30x30km cell...
+            //        wh_neg = where(min_toa[0:n_vis] le reform(f_int[0, 0:n_vis]), cnt_neg)
+            //        endrep until (cnt_neg eq 0 or vis+stp[i] ge vis_gr[dim_vis - 1])
+            boolean repeat = true;
+            while (vis + step[i] < visArray[i] && repeat == true) {
                 vis += step[i];
-                double[][] fInt = LutAccess.interpolAtmParamLut(atmParamLut, vza, sza, raa, hsf, vis, wvInit);
-                // todo: we need to check over ALL bands 1-6!! :-(
+                double[][] fInt = LutAccess.interpolAtmParamLut(atmParamLut, vza, sza, raa, hsurfMeanCell, vis, wvInit);
 //                wh_neg = where(min_toa[0:n_vis] le reform(f_int[0, 0:n_vis]), cnt_neg)
+                repeat = false;
+                for (int j = 0; j < nVis; j++) {
+                    if (toaMinCell[j] <= fInt[j][0]) {
+                        repeat = true;
+                    }
+                }
             }
         }
+        double visVal = vis - step[1];
 
-//        n_vis = where(wl_center gt 680.) ; OD: n_vis = [7,8,9,10,11,12,13,14]
-//        n_vis = n_vis[0]                 ; OD: now n_vis = 7...
-//        stp = [1., 0.1]                  ; OD: vis_gr = [10.0, 15.0, 23.0, 35.0, 60.0, 100.0, 180.0]
-//        vis = vis_gr[0] - stp[0]         ; OD: vis = 9.0
-//        for i = 0, 1 do begin
-//        if i eq 1 then vis = (vis - stp[0]) > vis_gr[0]
-//        repeat begin
-//        vis = vis + stp[i]   ; OD: vis = 10.0 if i=0
-//        f_int = interpol_lut(vza, sza, phi, hsurf, vis, wv)  ; OD: I understand that this result represents a 30x30km cell...
-//        wh_neg = where(min_toa[0:n_vis] le reform(f_int[0, 0:n_vis]), cnt_neg)
-//        endrep until (cnt_neg eq 0 or vis+stp[i] ge vis_gr[dim_vis - 1])
-//        ; OD: jumps out for vis=56.0,
-//        ; f_int=0.00805347    0.0650029    0.0297363     0.584800     0.240637     0.494965     0.237203
-//        endfor
-//                vis_lim = vis - stp[1]  ; OD: vis = 56.0
-//        vis_val = vis_lim       ; OD: vis_val=55.9, this is used in the inversion_MERIS_AOT below
-//        valid_flg =2
+        if (cellIsClear45Percent) {
+            // extract_ref_pixels, dem_sub, mus_il_sub, rad_sub_arr,
+            // width_win, height_win, num_bd, num_pix, wl_center, ref_pix_all, valid_flg
+            double[][] refPixels = extractRefPixels(hsurfArrayCell, cosSzaArrayCell, toaArrayCell);
 
-        return 0;  //To change body of created methods use File | Settings | File Templates.
+            //        if valid_flg eq 1 then begin;  OD: seems that we only have refPixels if valid_flg = 1
+
+            //        inversion_MERIS_AOT, num_pix, num_bd, ref_pix_all, wl_center,
+            //                             vza, sza, phi, hsurf, wv, mus_il, vis_lim, AOT_time_flg, $
+            //                             vis_val, vis_stddev, EM_code
+            InversionMerisAot inversionMerisAot = new InversionMerisAot();
+            inversionMerisAot.compute(refPixels, vza, sza, raa, wvInit, cosSzaMeanCell);
+            visVal = inversionMerisAot.getVisVal();
+            double visStdev = inversionMerisAot.getVisStdev();
+            double emCode = inversionMerisAot.getEmCode();
+
+            // todo continue
+
+        } else {
+            // nothing to do - keep visVal as it was before
+        }
+
+//        if float(cont_land_bri) / tot_pix gt 0.45 then begin;
+//        OD:
+//        get reference pixels and compute 'reference' visibility...
+//        mus_il_sub = mus_il_sub[wh_land_bri]
+//        dem_sub = dem_sub[wh_land_bri]
+//
+//        mus_il = mean(mus_il_sub)
+//        hsurf = mean(dem_sub)
+//
+//        rad_sub_arr = fltarr(cont_land_bri, num_bd)
+//        for jj = 0, num_bd - 1 do rad_sub_arr[ *, jj]=rad_sub[wh_land_bri + jj * tot_pix] * fac * cal_coef[jj]
+//
+//        extract_ref_pixels, dem_sub, mus_il_sub, rad_sub_arr, width_win, height_win, num_bd, num_pix, wl_center, ref_pix_all, valid_flg
+//
+//        if valid_flg eq 1 then begin;
+//        min_toa = fltarr(num_bd)
+//        ;
+//        for k = 0, num_bd - 1 do min_toa[k] = min(rad_sub_arr[ *, k])
+//        min_toa = min(rad_sub_arr, dimension = 1)
+//
+//        inversion_MERIS_AOT, num_pix, num_bd, ref_pix_all, wl_center, vza, sza, phi, hsurf, wv, mus_il, vis_lim, AOT_time_flg, $
+//        vis_val, vis_stddev, EM_code
+//        EM_code_mat[indx, indy]=EM_code
+//        mat_codes[indx, indy]=valid_flg
+//
+//                endif
+//        endif
+
+
+        return visVal;
+    }
+
+    private double[][] extractRefPixels(double[][] hsurfArrayCell, double[][] cosSzaArrayCell, double[][][] toaArrayCell) {
+        // returns reflectances of 5 reference pixels for each wavelength
+        // todo: implement
+        return new double[0][];  //To change body of created methods use File | Settings | File Templates.
     }
 
     private void readAuxdata() {
@@ -264,6 +377,41 @@ public class ScapeMCorrection implements Constants {
                 (hsf < hsfMin || hsf > hsfMax) ||
                 (vis < visMin || vis > visMax) ||
                 (cwv < cwvMin || cwv > cwvMax);
+    }
+
+    class InversionMerisAot {
+        private double visVal;
+        private double visStdev;
+        private double emCode;
+
+        private void compute(double[][] refPixels, double vza, double sza, double raa, double wvInit, double cosSzaMeanCell) {
+            //To change body of created methods use File | Settings | File Templates.
+            // todo: implement
+        }
+
+        private double getVisVal() {
+            return visVal;
+        }
+
+        private void setVisVal(double visVal) {
+            this.visVal = visVal;
+        }
+
+        private double getVisStdev() {
+            return visStdev;
+        }
+
+        private void setVisStdev(double visStdev) {
+            this.visStdev = visStdev;
+        }
+
+        private double getEmCode() {
+            return emCode;
+        }
+
+        private void setEmCode(double emCode) {
+            this.emCode = emCode;
+        }
     }
 
 }

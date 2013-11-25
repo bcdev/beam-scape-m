@@ -17,21 +17,17 @@ import org.esa.beam.framework.gpf.annotations.Parameter;
 import org.esa.beam.framework.gpf.annotations.SourceProduct;
 import org.esa.beam.framework.gpf.annotations.TargetProduct;
 import org.esa.beam.gpf.operators.meris.MerisBasisOp;
-import org.esa.beam.idepix.algorithms.scapem.FubScapeMClassificationOp;
 import org.esa.beam.idepix.algorithms.scapem.FubScapeMOp;
-import org.esa.beam.io.LutAccess;
+import org.esa.beam.idepix.util.IdepixUtils;
 import org.esa.beam.meris.brr.HelperFunctions;
 import org.esa.beam.meris.l2auxdata.Constants;
 import org.esa.beam.meris.l2auxdata.L2AuxData;
 import org.esa.beam.meris.l2auxdata.L2AuxDataProvider;
 import org.esa.beam.util.BitSetter;
 import org.esa.beam.util.ProductUtils;
-import org.esa.beam.util.ScapeMUtils;
-import org.esa.beam.util.math.LookupTable;
 import org.esa.beam.watermask.operator.WatermaskClassifier;
 
 import javax.media.jai.BorderExtender;
-import javax.media.jai.JAI;
 import java.awt.*;
 import java.io.IOException;
 import java.util.Calendar;
@@ -44,9 +40,9 @@ import java.util.Map;
  * @author Tonio Fincke, Olaf Danne
  */
 @OperatorMetadata(alias = "beam.scapeM", version = "1.0-SNAPSHOT",
-                  authors = "Tonio Fincke, Olaf Danne",
-                  copyright = "(c) 2013 Brockmann Consult",
-                  description = "Operator for MERIS atmospheric correction with SCAPE-M algorithm.")
+        authors = "Tonio Fincke, Olaf Danne",
+        copyright = "(c) 2013 Brockmann Consult",
+        description = "Operator for MERIS atmospheric correction with SCAPE-M algorithm.")
 public class ScapeMOp extends MerisBasisOp implements Constants {
     public static final String VERSION = "1.0-SNAPSHOT";
 
@@ -74,7 +70,6 @@ public class ScapeMOp extends MerisBasisOp implements Constants {
 
     protected ScapeMCorrection scapeMCorrection;
 
-    private Band isLandBand;
     private Band[] reflBands;
     private Band flagBand;
 
@@ -86,7 +81,6 @@ public class ScapeMOp extends MerisBasisOp implements Constants {
     private ElevationModel elevationModel;
 
     private Product cloudProduct;
-
 
 
     @Override
@@ -150,32 +144,32 @@ public class ScapeMOp extends MerisBasisOp implements Constants {
     }
 
     @Override
-    public void computeTile(Band targetBand, Tile targetTile, ProgressMonitor pm) throws OperatorException {
+    public void computeTileStack(Map<Band, Tile> targetTiles, Rectangle targetRect, ProgressMonitor pm) throws OperatorException {
+//        super.computeTileStack(targetTiles, targetRect, pm);
 
-        final Rectangle targetRect = targetTile.getRectangle();
+        Tile szaTile = getSourceTile(sourceProduct.getTiePointGrid(EnvisatConstants.MERIS_SUN_ZENITH_DS_NAME), targetRect);
+        Tile vzaTile = getSourceTile(sourceProduct.getTiePointGrid(EnvisatConstants.MERIS_VIEW_ZENITH_DS_NAME), targetRect);
+        Tile saaTile = getSourceTile(sourceProduct.getTiePointGrid(EnvisatConstants.MERIS_SUN_AZIMUTH_DS_NAME), targetRect);
+        Tile vaaTile = getSourceTile(sourceProduct.getTiePointGrid(EnvisatConstants.MERIS_VIEW_AZIMUTH_DS_NAME), targetRect);
+
+        Tile[] radianceTiles = new Tile[L1_BAND_NUM];
+        Band[] radianceBands = new Band[L1_BAND_NUM];
+        for (int bandId = 0; bandId < L1_BAND_NUM; bandId++) {
+            radianceBands[bandId] = sourceProduct.getBand(RADIANCE_BAND_PREFIX + "_" + (bandId + 1));
+            radianceTiles[bandId] = getSourceTile(radianceBands[bandId], targetRect);
+        }
+
+        double[] toaMinCell = new double[L1_BAND_NUM];
+
         final GeoCoding geoCoding = sourceProduct.getGeoCoding();
 
-        final Tile szaTile = getSourceTile(sourceProduct.getTiePointGrid(EnvisatConstants.MERIS_SUN_ZENITH_DS_NAME), targetRect,
-                                           BorderExtender.createInstance(BorderExtender.BORDER_COPY));
-        final Tile vzaTile = getSourceTile(sourceProduct.getTiePointGrid(EnvisatConstants.MERIS_VIEW_ZENITH_DS_NAME), targetRect,
-                                           BorderExtender.createInstance(BorderExtender.BORDER_COPY));
-        final Tile saaTile = getSourceTile(sourceProduct.getTiePointGrid(EnvisatConstants.MERIS_SUN_AZIMUTH_DS_NAME), targetRect,
-                                           BorderExtender.createInstance(BorderExtender.BORDER_COPY));
-        final Tile vaaTile = getSourceTile(sourceProduct.getTiePointGrid(EnvisatConstants.MERIS_VIEW_AZIMUTH_DS_NAME), targetRect,
-                                           BorderExtender.createInstance(BorderExtender.BORDER_COPY));
+        final Tile cloudFlagsTile = getSourceTile(cloudProduct.getBand(IdepixUtils.IDEPIX_CLOUD_FLAGS), targetRect,
+                BorderExtender.createInstance(BorderExtender.BORDER_COPY));
 
-        final int spectralBandIndex = targetBand.getSpectralBandIndex();
-        final String srcBandName = RADIANCE_BAND_PREFIX + "_" + (spectralBandIndex + 1);
-        final Tile radianceTile = getSourceTile(sourceProduct.getBand(srcBandName), targetRect);
+        final boolean cellIsClear35Percent =
+                scapeMCorrection.isCellClearLand(targetRect, geoCoding, cloudFlagsTile, classifier, 0.35);
 
-        // todo: activate when cloud mask is ready
-        final Tile cloudFlagsTile = null;
-//        final Tile cloudFlagsTile = getSourceTile(cloudProduct.getBand(FubScapeMClassificationOp.CLOUD_FLAGS), targetRect,
-//                                        BorderExtender.createInstance(BorderExtender.BORDER_COPY));
-
-        final boolean cellIsClear = scapeMCorrection.isCellClearLand(targetRect, geoCoding, cloudFlagsTile, classifier);
-
-        if (cellIsClear) {
+        if (cellIsClear35Percent) {
             // compute visibility...
 
             final int centerX = targetRect.x + targetRect.width / 2;
@@ -188,92 +182,41 @@ public class ScapeMOp extends MerisBasisOp implements Constants {
             final double phi = HelperFunctions.computeAzimuthDifference(vaa, saa);
 
             try {
-                final double hsurf = scapeMCorrection.getHsurfMeanCell(targetRect, geoCoding, classifier, elevationModel);
-//                if no illumination, mus_il = mat_cos = cos(sza_img * !dtor):
-                final double musIl = scapeMCorrection.getCosSzaMeanCell(targetRect, geoCoding, classifier, szaTile);
+                final double[][] hsurfArrayCell = scapeMCorrection.getHsurfArrayCell(targetRect, geoCoding, classifier, elevationModel);
+                final double hsurfMeanCell = scapeMCorrection.getHsurfMeanCell(hsurfArrayCell, geoCoding, classifier);
+
+                final double[][] cosSzaArrayCell = scapeMCorrection.getCosSzaArrayCell(targetRect, szaTile);
+                final double cosSzaMeanCell = scapeMCorrection.getCosSzaMeanCell(cosSzaArrayCell, geoCoding, classifier);
 
                 final int doy = sourceProduct.getStartTime().getAsCalendar().get(Calendar.DAY_OF_YEAR);
-                if (targetRect.x == 30 && targetRect.y == 0) {
-                    System.out.println("targetRect = " + targetRect);
+                double[][][] toaArrayCell = new double[L1_BAND_NUM][targetRect.width][targetRect.height];
+                for (int bandId = 0; bandId < L1_BAND_NUM; bandId++) {
+                    toaArrayCell[bandId] = scapeMCorrection.getToaArrayCell(radianceTiles[bandId], targetRect, geoCoding, doy, classifier);
+                    toaMinCell[bandId] = scapeMCorrection.getToaMinCell(toaArrayCell[bandId]);
                 }
-                double toaMinCell =
-                        scapeMCorrection.getToaMinCell(radianceTile, targetRect, geoCoding, doy, spectralBandIndex, classifier);
-                System.out.println();
 
                 // now get first visibility estimate...
-                double firstVisibility = scapeMCorrection.getFirstVisibility(toaMinCell, vza, sza, phi, hsurf);
+                final boolean cellIsClear45Percent =
+                        scapeMCorrection.isCellClearLand(targetRect, geoCoding, cloudFlagsTile, classifier, 0.45);
+                double firstVisibility =
+                        scapeMCorrection.getCellVisibility(toaArrayCell,
+                                toaMinCell, vza, sza, phi,
+                                hsurfArrayCell,
+                                hsurfMeanCell,
+                                cosSzaArrayCell,
+                                cosSzaMeanCell,
+                                cellIsClear45Percent);
 
-
+                // todo: continue
             } catch (Exception e) {
                 // todo
                 e.printStackTrace();
             }
-
-
-//            dem_sub = dem_img[x_ini:x_end, y_ini:y_end]
-//            mus_il_sub = mus_il_img[x_ini:x_end, y_ini:y_end]    ; if no illumination, mus_il = mat_cos = cos(sza_img * !dtor)
-//            rad_sub = rad_img[x_ini:x_end, y_ini:y_end, *]
-//
-//            mus_il = mean(mus_il_sub[wh_land_all])
-//            hsurf = mean(dem_sub[wh_land_all])
-//
-//            rad_sub_arr = fltarr(cont_land_all, num_bd)
-//            for jj = 0, num_bd - 1 do rad_sub_arr[*, jj] = rad_sub[wh_land_all + jj * tot_pix] * fac * cal_coef[jj]
-//
-//            min_toa = min(rad_sub_arr, dimension=1)           OK UP TO THIS POINT  !!!
-//
-//            n_vis = where(wl_center gt 680.)
-//            n_vis = n_vis[0]
-//            stp = [1., 0.1]
-//            vis = vis_gr[0] - stp[0]
-//            for i = 0, 1 do begin
-//            if i eq 1 then vis = (vis - stp[0]) > vis_gr[0]
-//            repeat begin
-//            vis = vis + stp[i]
-//            f_int = interpol_lut(vza, sza, phi, hsurf, vis, wv)  ; OD: I understand that this result represents a 30x30km cell...
-//            wh_neg = where(min_toa[0:n_vis] le reform(f_int[0, 0:n_vis]), cnt_neg)
-//            endrep until (cnt_neg eq 0 or vis+stp[i] ge vis_gr[dim_vis - 1])
-//            endfor
-//                    vis_lim = vis - stp[1]
-//            vis_val = vis_lim
-//            valid_flg =2
-//            ;stop
-//            ;       if vis_val le vis_ref then begin
-//            ;         vis_val = 0.
-//            ;         valid_flg = 0
-//            ;       endif
-//
-//            if float(cont_land_bri) / tot_pix gt 0.45 then begin
-//                    ; OD: get reference pixels and compute 'reference' visibility...
-//            mus_il_sub = mus_il_sub[wh_land_bri]
-//            dem_sub = dem_sub[wh_land_bri]
-//
-//            mus_il = mean(mus_il_sub)
-//            hsurf = mean(dem_sub)
-//
-//            rad_sub_arr = fltarr(cont_land_bri, num_bd)
-//            for jj = 0, num_bd - 1 do rad_sub_arr[*, jj] = rad_sub[wh_land_bri + jj * tot_pix] * fac * cal_coef[jj]
-//
-//            extract_ref_pixels, dem_sub, mus_il_sub, rad_sub_arr, width_win, height_win, num_bd, num_pix, wl_center, ref_pix_all, valid_flg
-//
-//            if valid_flg eq 1 then begin
-//                    ;min_toa = fltarr(num_bd)
-//            ;for k = 0, num_bd - 1 do min_toa[k] = min(rad_sub_arr[*, k])
-//            min_toa = min(rad_sub_arr, dimension=1)
-//
-//            inversion_MERIS_AOT, num_pix, num_bd, ref_pix_all, wl_center, vza, sza, phi, hsurf, wv, mus_il, vis_lim, AOT_time_flg, $
-//            vis_val, vis_stddev, EM_code
-//            EM_code_mat[indx,indy] = EM_code
-//            mat_codes[indx, indy] = valid_flg
-//
-//                    endif
-
-
         } else {
             // todo
         }
-
     }
+
 
     private void createTargetProduct() throws OperatorException {
         targetProduct = createCompatibleProduct(sourceProduct, "MER", "MER_L2");
@@ -318,9 +261,6 @@ public class ScapeMOp extends MerisBasisOp implements Constants {
         }
         return flagCoding;
     }
-
-
-
 
 
     public static class Spi extends OperatorSpi {
