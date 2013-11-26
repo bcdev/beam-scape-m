@@ -30,4 +30,14 @@ public class ScapeMConstants {
             0.0061037163,
             0.005430559
     };
+
+    public final static double solIrr7 = 1424.7742;
+    public final static double solIrr9 = 1225.6102;
+
+    public final static int NUM_REF_PIXELS = 5;
+
+    public final static int REF_PIXELS_HIGH = 0;
+    public final static int REF_PIXELS_MEDIUM = 1;
+    public final static int REF_PIXELS_LOW = 2;
+
 }

@@ -1,6 +1,7 @@
 package org.esa.beam.operator;
 
 
+import org.esa.beam.ScapeMConstants;
 import org.esa.beam.framework.datamodel.GeoCoding;
 import org.esa.beam.framework.datamodel.GeoPos;
 import org.esa.beam.framework.datamodel.PixelPos;
@@ -17,6 +18,8 @@ import org.esa.beam.watermask.operator.WatermaskClassifier;
 
 import java.awt.*;
 import java.io.IOException;
+import java.util.*;
+import java.util.List;
 
 /**
  * Class representing SCAPE-M algorithm
@@ -280,7 +283,7 @@ public class ScapeMCorrection implements Constants {
         if (cellIsClear45Percent) {
             // extract_ref_pixels, dem_sub, mus_il_sub, rad_sub_arr,
             // width_win, height_win, num_bd, num_pix, wl_center, ref_pix_all, valid_flg
-            double[][] refPixels = extractRefPixels(hsurfArrayCell, cosSzaArrayCell, toaArrayCell);
+            double[][] refPixels = extractRefPixels(hsurfArrayCell, hsurfMeanCell, cosSzaArrayCell, cosSzaMeanCell, toaArrayCell);
 
             //        if valid_flg eq 1 then begin;  OD: seems that we only have refPixels if valid_flg = 1
 
@@ -290,8 +293,8 @@ public class ScapeMCorrection implements Constants {
             InversionMerisAot inversionMerisAot = new InversionMerisAot();
             inversionMerisAot.compute(refPixels, vza, sza, raa, wvInit, cosSzaMeanCell);
             visVal = inversionMerisAot.getVisVal();
-            double visStdev = inversionMerisAot.getVisStdev();
-            double emCode = inversionMerisAot.getEmCode();
+            double visStdev = inversionMerisAot.getVisStdev();       // not needed? does not seem to be used in IDL
+            double emCode = inversionMerisAot.getEmCode();           // not needed? does not seem to be used in IDL
 
             // todo continue
 
@@ -331,9 +334,169 @@ public class ScapeMCorrection implements Constants {
         return visVal;
     }
 
-    private double[][] extractRefPixels(double[][] hsurfArrayCell, double[][] cosSzaArrayCell, double[][][] toaArrayCell) {
+    private double[][] extractRefPixels(double[][] hsurfArrayCell, double hsurfMeanCell,
+                                        double[][] cosSzaArrayCell, double cosSzaMeanCell, double[][][] toaArrayCell) {
         // returns reflectances of 5 reference pixels for each wavelength
         // todo: implement
+
+        final int cellWidth = toaArrayCell[0].length;
+        final int cellHeight = toaArrayCell[0][0].length;
+
+        double[] hsurfLim = new double[]{0.8 * hsurfMeanCell, 1.2 * hsurfMeanCell};
+        double[] cosSzaLim = new double[]{0.9 * cosSzaMeanCell, 1.1 * cosSzaMeanCell};
+
+        double[][] ndvi = new double[cellWidth][cellHeight];
+        int countHigh = 0;
+        int countMedium = 1;
+        int countLow = 2;
+        for (int i = 0; i < cellWidth; i++) {
+            for (int j = 0; j < cellHeight; j++) {
+                final double toa7 = toaArrayCell[7][i][j] / ScapeMConstants.solIrr7;
+                final double toa9 = toaArrayCell[9][i][j] / ScapeMConstants.solIrr9;
+                ndvi[i][j] = (toa9 - toa7) / (toa9 + toa7);
+                if (hsurfArrayCell[i][j] > hsurfLim[0] && hsurfArrayCell[i][j] < hsurfLim[1] &&
+                        cosSzaArrayCell[i][j] > cosSzaLim[0] && cosSzaArrayCell[i][j] < cosSzaLim[1]) {
+                    if (ndvi[i][j] >= 0.4 && ndvi[i][j] < 0.9) {
+                        countHigh++;
+                    } else if (ndvi[i][j] >= 0.15 && ndvi[i][j] < 0.4) {
+                        countMedium++;
+                    } else if (ndvi[i][j] >= 0.09 && ndvi[i][j] < 0.15) {
+                        countLow++;
+                    }
+                }
+            }
+        }
+
+        // sort NDVIs...
+        for (int i = 0; i < cellWidth; i++) {
+            for (int j = 0; j < cellHeight; j++) {
+                final double toa7 = toaArrayCell[7][i][j] / ScapeMConstants.solIrr7;
+                final double toa9 = toaArrayCell[9][i][j] / ScapeMConstants.solIrr9;
+                ndvi[i][j] = (toa9 - toa7) / (toa9 + toa7);
+                if (hsurfArrayCell[i][j] > hsurfLim[0] && hsurfArrayCell[i][j] < hsurfLim[1] &&
+                        cosSzaArrayCell[i][j] > cosSzaLim[0] && cosSzaArrayCell[i][j] < cosSzaLim[1]) {
+                    if (ndvi[i][j] >= 0.4 && ndvi[i][j] < 0.9) {
+                        int[] highNdviIndexPair = new int[]{i,j};
+                        countHigh++;
+                    } else if (ndvi[i][j] >= 0.15 && ndvi[i][j] < 0.4) {
+                        countMedium++;
+                    } else if (ndvi[i][j] >= 0.09 && ndvi[i][j] < 0.15) {
+                        countLow++;
+                    }
+                }
+            }
+        }
+
+
+
+        final int nLim = Math.min(countHigh / 2, countMedium / 3);
+        double[][][] refPixels = new double[L1_BAND_NUM][nLim][ScapeMConstants.NUM_REF_PIXELS];
+
+        for (int bandId = 0; bandId < L1_BAND_NUM; bandId++) {
+            List<Double> refPixHighList = new ArrayList<Double>();
+            List<Double> refPixMediumList = new ArrayList<Double>();
+            List<Double> refPixLowList = new ArrayList<Double>();
+            for (int i = 0; i < cellWidth; i++) {
+                for (int j = 0; j < cellHeight; j++) {
+                    if (hsurfArrayCell[i][j] > hsurfLim[0] && hsurfArrayCell[i][j] < hsurfLim[1] &&
+                            cosSzaArrayCell[i][j] > cosSzaLim[0] && cosSzaArrayCell[i][j] < cosSzaLim[1]) {
+                        if (ndvi[i][j] >= 0.4 && ndvi[i][j] < 0.9) {
+                            refPixHighList.add(toaArrayCell[bandId][i][j]);
+                        } else if (ndvi[i][j] >= 0.15 && ndvi[i][j] < 0.4) {
+                            refPixMediumList.add(toaArrayCell[bandId][i][j]);
+                        } else if (ndvi[i][j] >= 0.09 && ndvi[i][j] < 0.15) {
+                            refPixLowList.add(toaArrayCell[bandId][i][j]);
+                        }
+                    }
+                }
+            }
+
+            if (refPixMediumList.size() + 2 >= ScapeMConstants.NUM_REF_PIXELS) {
+                //                valid_flg = 1
+
+                for (int i = 0; i < nLim; i++) {
+                    refPixels[bandId][i][0] = refPixHighList.get(2 * i);
+                    refPixels[bandId][i][1] = refPixHighList.get(2 * i + 1);
+                    refPixels[bandId][i][2] = refPixMediumList.get(2 * i);
+                    refPixels[bandId][i][3] = refPixMediumList.get(2 * i + 1);
+                    if (i < refPixLowList.size()) {
+                        refPixels[bandId][i][4] = refPixLowList.get(i);
+                    } else {
+                        refPixels[bandId][i][4] = refPixMediumList.get(2 * i + 2);
+                    }
+                }
+
+                //        n_lim = (cont_hi / 2) < (cont_me / 3)
+//        ref_pix_all = fltarr(n_lim, num_pix, num_bd)
+//        for i = 0, n_lim - 1 do begin
+//        ref_pix_all[i, 0:1, *] = ref_pix_hi[2*i:2*i+1, *]
+//        if i lt cont_lo then begin
+//        ref_pix_all[i, 2:3, *] = ref_pix_me[2*i:2*i+1, *]
+//        ref_pix_all[i, 4, *] = ref_pix_lo[i, *]
+//        endif else ref_pix_all[i, 2:4, *] = ref_pix_me[2*i:2*i+2, *]
+//        endfor
+            } else {
+                //                valid_flg = 0
+                // todo: further check this condition
+            }
+
+        }
+
+
+//        PRO extract_ref_pixels, dem, sza_il, subset, width_win, height_win, num_bd, num_pix, wl_center, ref_pix_all, valid_flg
+//
+
+//
+//        if (2 + cont_me lt num_pix) or (cont_hi lt 2) then valid_flg = 0 else begin
+//                valid_flg = 1
+//
+//        pos_ref_hi = lonarr(cont_hi)
+//
+//        ref_hi = lonarr(cont_hi)                                     ;ref_* : indices de pixeles elegidos
+//        ord_arr = reverse(sort(ndvi_img[index_hi]))
+//        for i = 0, cont_hi - 1 do ref_hi[i] = ord_arr[i]        ; Se asigna pixeles con max(NDVI)
+//        pos_ref_hi = index_hi[ref_hi]
+//        ref_pix_hi = fltarr(cont_hi, num_bd)
+//        for i=0, cont_hi - 1 do begin
+//        ref_pix_hi[i, *] = subset[pos_ref_hi[i], *]
+//        endfor
+//
+//        if cont_lo gt 0 then begin
+//        pos_ref_lo = lonarr(cont_lo)
+//        ref_lo = lonarr(cont_lo)                                     ;ref_* : indices de pixeles elegidos
+//        ord_arr = sort(ndvi_img[index_lo])
+//        for i = 0, cont_lo - 1 do ref_lo[i] = ord_arr[i]
+//        pos_ref_lo = index_lo[ref_lo]
+//        ref_pix_lo = fltarr(cont_lo, num_bd)
+//        for i=0, cont_lo - 1 do begin
+//        ref_pix_lo[i, *] = subset[pos_ref_lo[i], *]
+//        endfor
+//        endif else ref_pix_lo = 0
+//        if cont_me gt 0 then begin
+//        pos_ref_me = lonarr(cont_me)
+//        ref_me = lonarr(cont_me)                                     ;ref_* : indices de pixeles elegidos
+//        ord_arr = reverse(sort(ndvi_img[index_me]))
+//        for i = 0, cont_me - 1 do ref_me[i] = ord_arr[i]        ; Se asigna pixeles con max(NDVI)
+//        pos_ref_me = index_me[ref_me]
+//        ref_pix_me = fltarr(cont_me, num_bd)
+//        for i=0, cont_me - 1 do begin
+//        ref_pix_me[i, *] = subset[pos_ref_me[i], *]
+//        endfor
+//        endif else ref_pix_me = 0
+//
+//        n_lim = (cont_hi / 2) < (cont_me / 3)
+//        ref_pix_all = fltarr(n_lim, num_pix, num_bd)
+//        for i = 0, n_lim - 1 do begin
+//        ref_pix_all[i, 0:1, *] = ref_pix_hi[2*i:2*i+1, *]
+//        if i lt cont_lo then begin
+//        ref_pix_all[i, 2:3, *] = ref_pix_me[2*i:2*i+1, *]
+//        ref_pix_all[i, 4, *] = ref_pix_lo[i, *]
+//        endif else ref_pix_all[i, 2:4, *] = ref_pix_me[2*i:2*i+2, *]
+//        endfor
+//
+//                endelse
+//        END
+
         return new double[0][];  //To change body of created methods use File | Settings | File Templates.
     }
 
