@@ -539,6 +539,8 @@ public class ScapeMCorrection implements Constants {
 
                     final double[] weight = new double[]{2., 2., 1.5, 1.5, 1.};
 
+                    // todo: chiSqr is computed in 'minim_TOA' being invoked from Powell. check how to handle this here
+                    // 'minim_TOA' is the function to be minimized by Powell!
                     double[] chiSqr = powell.compute(powellInput, xiInput, 20000); // ???
                     double chiSqrMean = ScapeMUtils.getMeanDouble1D(chiSqr);
 
