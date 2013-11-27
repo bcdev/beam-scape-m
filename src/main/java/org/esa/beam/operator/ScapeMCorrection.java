@@ -13,7 +13,7 @@ import org.esa.beam.meris.l2auxdata.Constants;
 import org.esa.beam.meris.l2auxdata.L2AuxData;
 import org.esa.beam.util.CellSample;
 import org.esa.beam.util.CellSampleComparator;
-import org.esa.beam.util.Powell;
+import org.esa.beam.math.Powell;
 import org.esa.beam.util.ScapeMUtils;
 import org.esa.beam.util.math.LookupTable;
 import org.esa.beam.util.math.MathUtils;
@@ -519,13 +519,11 @@ public class ScapeMCorrection implements Constants {
             }
 
             double[][] toa = new double[ScapeMConstants.NUM_REF_PIXELS][L1_BAND_NUM];
-            double[] chiSqr = new double[ScapeMConstants.NUM_REF_PIXELS];
 
             final int limRefSets = 1;    // for AOT_time_flg eq 1, see .inp file
             final int nEMVeg = 3;    // for AOT_time_flg eq 1, see .inp file
 
             final int nRefSets = Math.max(refPixels[0].length, limRefSets);
-            final double fTol = 1.E-4;
 
             double[] visArr = new double[nRefSets];
             double[] fminArr = new double[nEMVeg];
@@ -541,7 +539,8 @@ public class ScapeMCorrection implements Constants {
 
                     final double[] weight = new double[]{2., 2., 1.5, 1.5, 1.};
 
-                    powell.compute(powellInput, xiInput, fTol, "MinimToa", 20000);
+                    double[] chiSqr = powell.compute(powellInput, xiInput, 20000); // ???
+                    double chiSqrMean = ScapeMUtils.getMeanDouble1D(chiSqr);
 
 
                 }
