@@ -40,9 +40,9 @@ import java.util.Map;
  * @author Tonio Fincke, Olaf Danne
  */
 @OperatorMetadata(alias = "beam.scapeM", version = "1.0-SNAPSHOT",
-        authors = "Tonio Fincke, Olaf Danne",
-        copyright = "(c) 2013 Brockmann Consult",
-        description = "Operator for MERIS atmospheric correction with SCAPE-M algorithm.")
+                  authors = "Tonio Fincke, Olaf Danne",
+                  copyright = "(c) 2013 Brockmann Consult",
+                  description = "Operator for MERIS atmospheric correction with SCAPE-M algorithm.")
 public class ScapeMOp extends MerisBasisOp implements Constants {
     public static final String VERSION = "1.0-SNAPSHOT";
 
@@ -164,7 +164,7 @@ public class ScapeMOp extends MerisBasisOp implements Constants {
         final GeoCoding geoCoding = sourceProduct.getGeoCoding();
 
         final Tile cloudFlagsTile = getSourceTile(cloudProduct.getBand(IdepixUtils.IDEPIX_CLOUD_FLAGS), targetRect,
-                BorderExtender.createInstance(BorderExtender.BORDER_COPY));
+                                                  BorderExtender.createInstance(BorderExtender.BORDER_COPY));
 
         final boolean cellIsClear35Percent =
                 scapeMCorrection.isCellClearLand(targetRect, geoCoding, cloudFlagsTile, classifier, 0.35);
@@ -195,17 +195,16 @@ public class ScapeMOp extends MerisBasisOp implements Constants {
                     toaMinCell[bandId] = scapeMCorrection.getToaMinCell(toaArrayCell[bandId]);
                 }
 
-                // now get first visibility estimate...
+                // now get visibility estimate...
                 final boolean cellIsClear45Percent =
                         scapeMCorrection.isCellClearLand(targetRect, geoCoding, cloudFlagsTile, classifier, 0.45);
-                double firstVisibility =
-                        scapeMCorrection.getCellVisibility(toaArrayCell,
-                                toaMinCell, vza, sza, phi,
-                                hsurfArrayCell,
-                                hsurfMeanCell,
-                                cosSzaArrayCell,
-                                cosSzaMeanCell,
-                                cellIsClear45Percent);
+                double visibility = scapeMCorrection.getCellVisibility(toaArrayCell,
+                                                                       toaMinCell, vza, sza, phi,
+                                                                       hsurfArrayCell,
+                                                                       hsurfMeanCell,
+                                                                       cosSzaArrayCell,
+                                                                       cosSzaMeanCell,
+                                                                       cellIsClear45Percent);
 
                 // todo: continue
             } catch (Exception e) {

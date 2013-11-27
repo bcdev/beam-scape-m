@@ -25,4 +25,13 @@ public class ScapeMUtils {
         return dSol;
     }
 
+    public static Double[] getAsDoubleArray(double[] src) {
+        Double[] result = new Double[src.length];
+        int index = 0;
+        for (double d: src) {
+            result[index++] = new Double(d);
+        }
+        return result;
+    }
+
 }
