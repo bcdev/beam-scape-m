@@ -10,9 +10,6 @@ public class CellSample {
     private int cellYIndex;
     private Double value;
 
-    public CellSample() {
-    }
-
     public CellSample(int cellXIndex, int cellYIndex, Double value) {
         this.cellXIndex = cellXIndex;
         this.cellYIndex = cellYIndex;
@@ -23,16 +20,8 @@ public class CellSample {
         return cellXIndex;
     }
 
-    void setCellXIndex(int cellXIndex) {
-        this.cellXIndex = cellXIndex;
-    }
-
     public int getCellYIndex() {
         return cellYIndex;
-    }
-
-    void setCellYIndex(int cellYIndex) {
-        this.cellYIndex = cellYIndex;
     }
 
     public Double getValue() {

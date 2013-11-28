@@ -1,9 +1,5 @@
 package org.esa.beam.util;
 
-import org.esa.beam.util.math.MathUtils;
-
-import java.util.Calendar;
-
 /**
  * SCAPE-M utility class
  *
@@ -11,51 +7,27 @@ import java.util.Calendar;
  */
 public class ScapeMUtils {
 
-    /**
-     * Calculation of the variability of the solar constant during the year.
-     * (Java implementation of 6S Fortran routine 'varsol').
-     *
-     * @param doy - day of year
-     * @return dSol - multiplicative factor to apply to the mean value of the solar constant
-     */
-    public static double varSol(int doy) {
-        double om = 0.9856 * (doy - 4) * MathUtils.DTOR;
-        double dSol = Math.sqrt(Math.pow(1. - 0.01673 * Math.cos(om), 2.0));
-
-        return dSol;
-    }
-
-    public static Double[] getAsDoubleArray(double[] src) {
-        Double[] result = new Double[src.length];
-        int index = 0;
-        for (double d : src) {
-            result[index++] = new Double(d);
+    public static double getSumDouble1D(Double[] src) {
+        double sum = 0.0;
+        for (Double d : src) {
+            sum += d;
         }
-        return result;
+        return sum;
     }
 
     public static double getMeanDouble1D(double[] src) {
-        double mean = 0.0;
-        for (int i = 0; i < src.length; i++) {
-            mean += src[i];
-        }
-        return mean / src.length;
+        return getSumDouble1D(src) / src.length;
     }
 
     public static double getMeanDouble1D(Double[] src) {
-        double mean = 0.0;
-        for (int i = 0; i < src.length; i++) {
-            mean += src[i].doubleValue();
-        }
-        return mean / src.length;
+        return getSumDouble1D(src) / src.length;
     }
-
 
     public static double getMinimumDouble1D(double[] src) {
         double min = Double.MAX_VALUE;
-        for (int i = 0; i < src.length; i++) {
-            if (src[i] < min) {
-                min = src[i];
+        for (double d : src) {
+            if (d < min) {
+                min = d;
             }
         }
         return min;
@@ -76,8 +48,8 @@ public class ScapeMUtils {
     public static double getStdevDouble1D(double[] src) {
         double diffSqr = 0.0;
         double mean = getMeanDouble1D(src);
-        for (int i = 0; i < src.length; i++) {
-            diffSqr += Math.pow(src[i] - mean, 2.0);
+        for (double d : src) {
+            diffSqr += Math.pow(d - mean, 2.0);
         }
         return Math.sqrt(diffSqr/(src.length-1));
     }
@@ -85,12 +57,19 @@ public class ScapeMUtils {
     public static double getStdevDouble1D(Double[] src) {
         double diffSqr = 0.0;
         double mean = getMeanDouble1D(src);
-        for (int i = 0; i < src.length; i++) {
-            diffSqr += Math.pow(src[i].doubleValue() - mean, 2.0);
+        for (Double d : src) {
+            diffSqr += Math.pow(d - mean, 2.0);
         }
         return Math.sqrt(diffSqr/(src.length-1));
     }
 
 
+    private static double getSumDouble1D(double[] src) {
+        double sum = 0.0;
+        for (double d : src) {
+            sum += d;
+        }
+        return sum;
+    }
 
 }

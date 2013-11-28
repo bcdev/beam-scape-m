@@ -1,20 +1,25 @@
 package org.esa.beam.operator;
 
+import org.esa.beam.util.Varsol;
 import org.junit.Test;
 
-import static org.junit.Assert.assertTrue;
+import java.util.Calendar;
+
+import static junit.framework.Assert.assertEquals;
 
 public class ScapeMVisibilityTest {
 
-    // todo
-
     @Test
-    public void testSomething() {
-        assertTrue(true);
+    public void testVarSol() {
+        int year = 2010;
+        int day = 14;
+
+        Calendar cal = Calendar.getInstance();
+        cal.set(year, Calendar.MARCH, day);
+        int doy = cal.get(Calendar.DAY_OF_YEAR);
+
+        double varSol = Varsol.getVarSol(doy);
+        assertEquals(0.993734, varSol, 1.E-5);
     }
 
-    @Test
-    public void testGetRefPixelsInNDVIRange() {
-        assertTrue(true);
-    }
 }

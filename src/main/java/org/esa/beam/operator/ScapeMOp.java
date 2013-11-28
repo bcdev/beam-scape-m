@@ -144,7 +144,7 @@ public class ScapeMOp extends MerisBasisOp implements Constants {
         reflBands = addBandGroup(REFL_BAND_PREFIX);
 
         flagBand = targetProduct.addBand(CORR_FLAGS, ProductData.TYPE_INT16);
-        FlagCoding flagCoding = createFlagCoding(reflBands.length);
+        FlagCoding flagCoding = createFlagCoding();
         flagBand.setSampleCoding(flagCoding);
         targetProduct.getFlagCodingGroup().add(flagCoding);
 
@@ -168,7 +168,7 @@ public class ScapeMOp extends MerisBasisOp implements Constants {
         return bands;
     }
 
-    public static FlagCoding createFlagCoding(int bandLength) {
+    public static FlagCoding createFlagCoding() {
         FlagCoding flagCoding = new FlagCoding(CORR_FLAGS);
         int bitIndex = 0;
         for (int i = 0; i < L1_BAND_NUM; i++) {

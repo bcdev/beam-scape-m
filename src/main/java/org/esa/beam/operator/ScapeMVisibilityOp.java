@@ -95,10 +95,10 @@ public class ScapeMVisibilityOp extends MerisBasisOp implements Constants {
 
         final Rectangle targetRect = targetTile.getRectangle();
 
-        Tile szaTile = getSourceTile(sourceProduct.getTiePointGrid(EnvisatConstants.MERIS_SUN_ZENITH_DS_NAME), targetRect);
-        Tile vzaTile = getSourceTile(sourceProduct.getTiePointGrid(EnvisatConstants.MERIS_VIEW_ZENITH_DS_NAME), targetRect);
-        Tile saaTile = getSourceTile(sourceProduct.getTiePointGrid(EnvisatConstants.MERIS_SUN_AZIMUTH_DS_NAME), targetRect);
-        Tile vaaTile = getSourceTile(sourceProduct.getTiePointGrid(EnvisatConstants.MERIS_VIEW_AZIMUTH_DS_NAME), targetRect);
+        final Tile szaTile = getSourceTile(sourceProduct.getTiePointGrid(EnvisatConstants.MERIS_SUN_ZENITH_DS_NAME), targetRect);
+        final Tile vzaTile = getSourceTile(sourceProduct.getTiePointGrid(EnvisatConstants.MERIS_VIEW_ZENITH_DS_NAME), targetRect);
+        final Tile saaTile = getSourceTile(sourceProduct.getTiePointGrid(EnvisatConstants.MERIS_SUN_AZIMUTH_DS_NAME), targetRect);
+        final Tile vaaTile = getSourceTile(sourceProduct.getTiePointGrid(EnvisatConstants.MERIS_VIEW_AZIMUTH_DS_NAME), targetRect);
 
         Tile[] radianceTiles = new Tile[L1_BAND_NUM];
         Band[] radianceBands = new Band[L1_BAND_NUM];
@@ -130,7 +130,7 @@ public class ScapeMVisibilityOp extends MerisBasisOp implements Constants {
             final double phi = HelperFunctions.computeAzimuthDifference(vaa, saa);
 
             try {
-                final double[][] hsurfArrayCell = scapeMVisibility.getHsurfArrayCell(targetRect, geoCoding, classifier, elevationModel);
+                final double[][] hsurfArrayCell = scapeMVisibility.getHsurfArrayCell(targetRect, geoCoding, elevationModel);
                 final double hsurfMeanCell = scapeMVisibility.getHsurfMeanCell(hsurfArrayCell, geoCoding, classifier);
 
                 final double[][] cosSzaArrayCell = scapeMVisibility.getCosSzaArrayCell(targetRect, szaTile);
@@ -154,17 +154,21 @@ public class ScapeMVisibilityOp extends MerisBasisOp implements Constants {
                                                                        cosSzaMeanCell,
                                                                        cellIsClear45Percent);
 
-                for (int y = targetRect.y; y < targetRect.y + targetRect.height; y++) {
-                    for (int x = targetRect.x; x < targetRect.x + targetRect.width; x++) {
-                        targetTile.setSample(x, y, visibility);
-                    }
-                }
+                setCellSample(targetTile, targetRect, visibility);
             } catch (Exception e) {
                 // todo
                 e.printStackTrace();
             }
         } else {
-            // todo
+            setCellSample(targetTile, targetRect, Double.NaN);
+        }
+    }
+
+    private void setCellSample(Tile targetTile, Rectangle targetRect, double visibility) {
+        for (int y = targetRect.y; y < targetRect.y + targetRect.height; y++) {
+            for (int x = targetRect.x; x < targetRect.x + targetRect.width; x++) {
+                targetTile.setSample(x, y, visibility);
+            }
         }
     }
 
@@ -176,7 +180,7 @@ public class ScapeMVisibilityOp extends MerisBasisOp implements Constants {
         ProductUtils.copyMasks(sourceProduct, targetProduct);
 
         Band visibilityBand = targetProduct.addBand(VISIBILITY_BAND_NAME, ProductData.TYPE_FLOAT32);
-        visibilityBand.setNoDataValue(-1.0);
+        visibilityBand.setNoDataValue(-1.0);   // todo: check
         visibilityBand.setNoDataValueUsed(true);
 
         if (sourceProduct.getProductType().contains("_RR")) {

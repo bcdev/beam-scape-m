@@ -1,6 +1,6 @@
 package org.esa.beam.operator;
 
-import org.esa.beam.io.LutAccess;
+import org.esa.beam.ScapeMConstants;
 import org.esa.beam.math.MvFunction;
 import org.esa.beam.meris.l2auxdata.Constants;
 
@@ -11,21 +11,45 @@ import org.esa.beam.meris.l2auxdata.Constants;
  */
 public class ToaMinimization implements MvFunction, Constants {
     private double[] chiSquare;
+
     private double visLowerLim;
-    private double visUpperLim;
-    private double[] visArray;
+    private double[] visArrayLUT;
     private double[][] lpwArray;
     private double[][] etwArray;
     private double[][] sabArray;
+    private double[][][] refPixels;
+    private int emVegIndex;
+    private double[] weight;
+    private double visOld;
+
+
+    public ToaMinimization(double visLowerLim, double[] visArrayLUT,
+                           double[][] lpwArray, double[][] etwArray, double[][] sabArray,
+                           double[][][] refPixels, double visOld) {
+        this.visLowerLim = visLowerLim;
+        this.visArrayLUT = visArrayLUT;
+        this.lpwArray = lpwArray;
+        this.etwArray = etwArray;
+        this.sabArray = sabArray;
+        this.refPixels = refPixels;
+        this.visOld = visOld;
+    }
 
     @Override
     public double f(double[] x) {
         // todo: implement 'minim_TOA' from IDL here
 
+        double[] lpwInt = new double[L1_BAND_NUM];
+        double[] etwInt = new double[L1_BAND_NUM];
+        double[] sabInt = new double[L1_BAND_NUM];
 
+        double[] surfRefl = new double[L1_BAND_NUM];
+        double[][] toa = new double[L1_BAND_NUM][ScapeMConstants.NUM_REF_PIXELS];
+        chiSquare = new double[ScapeMConstants.NUM_REF_PIXELS];
 
         double vis = x[10];
-        visUpperLim = visArray[visArray.length-1];
+
+        final double visUpperLim = visArrayLUT[visArrayLUT.length - 1];
         boolean xVectorInvalid = false;
         for (int i = 0; i < x.length; i++) {
             if (x[i] < 0.0) {
@@ -35,94 +59,57 @@ public class ToaMinimization implements MvFunction, Constants {
         }
 
         if (!xVectorInvalid && vis >= visLowerLim && vis < visUpperLim) {
-            int index = 0;
-            for (int i = 0; i < visArray.length; i++) {
-                if (vis >= visArray[i]) {
+            double toaMin = 0.0;
+            if (vis != visOld) {
+                int visInf = 0;
+                for (int i = visArrayLUT.length - 1; i >= 0; i--) {
+                    if (vis >= visArrayLUT[i]) {
+                        visInf = i;
+                    }
+                }
 
+                final double delta = visArrayLUT[visInf + 1] - visArrayLUT[visInf];
+
+                for (int i = 0; i < L1_BAND_NUM; i++) {
+                    lpwInt[i] = (lpwArray[i][visInf + 1] - lpwArray[i][visInf]) * vis +
+                            lpwArray[i][visInf] * visArrayLUT[visInf + 1] -
+                            lpwArray[i][visInf + 1] * visArrayLUT[visInf] * delta;
+                    etwInt[i] = (etwArray[i][visInf + 1] - etwArray[i][visInf]) * vis +
+                            etwArray[i][visInf] * visArrayLUT[visInf + 1] -
+                            etwArray[i][visInf + 1] * visArrayLUT[visInf] * delta;
+                    sabInt[i] = (sabArray[i][visInf + 1] - sabArray[i][visInf]) * vis +
+                            sabArray[i][visInf] * visArrayLUT[visInf + 1] -
+                            sabArray[i][visInf + 1] * visArrayLUT[visInf] * delta;
                 }
             }
+            for (int j = 0; j < ScapeMConstants.NUM_REF_PIXELS; j++) {
+                chiSquare[j] = 0.0;
+                for (int i = 0; i < L1_BAND_NUM; i++) {
+                    surfRefl[i] = x[2 * j] * ScapeMConstants.RHO_VEG_ALL[j][i] + x[2 * j + 1] * ScapeMConstants.RHO_SUE[i];
+                    toa[i][j] = lpwInt[i] + surfRefl[i] * etwInt[i] / (Math.PI * (1.0 - sabInt[i] * surfRefl[i]));
+                    chiSquare[j] += Math.pow(ScapeMConstants.WL_CENTER_INV[i] * (refPixels[i][emVegIndex][j] - toa[i][j]), 2.0);
+                }
+                toaMin += weight[j] * chiSquare[j];
+            }
+
+            visOld = vis;
+            return toaMin;
+
         } else {
-            return 5.E+8; // ???
+            return 5.E+8; // ???   // todo: check suitable 'invalid' value
         }
-
-//        FUNCTION minim_TOA, x
-//        common pow, wl_center_inv, vis_old, num_pix, wl_center
-//        common fits, toa, chi_sq
-//        common inversion, lpw, etw, sab, ro_veg, ro_sue, weight, ref_pix, vis_lim
-//        common static, lpw_int, etw_int, sab_int
-//        common lut_gr, vis_gr, wv_gr, hs_gr, dim_vis, dim_wv, dim_hs
-//
-//                ;print, 'entering "minim_TOA"'
-//        wh = where(x lt 0., cont_neg)
-//        vis = x[10]
-//        ;stop
-//        if cont_neg eq 0. and vis ge vis_lim and vis lt vis_gr[dim_vis - 1] then begin
-//
-//        if vis ne vis_old then begin
-//                wh = where(vis ge vis_gr)
-//        vis_inf = wh[n_elements(wh) - 1]
-//
-//        delta = 1. / (vis_gr[vis_inf + 1] - vis_gr[vis_inf])
-//
-//        lpw_int = ((lpw[*, vis_inf + 1] - lpw[*, vis_inf]) * vis + lpw[*, vis_inf] * vis_gr[vis_inf + 1] - $
-//        lpw[*, vis_inf + 1] * vis_gr[vis_inf]) * delta
-//
-//        etw_int = ((etw[*, vis_inf + 1] - etw[*, vis_inf]) * vis + etw[*, vis_inf] * vis_gr[vis_inf + 1] - $
-//        etw[*, vis_inf + 1] * vis_gr[vis_inf]) * delta
-//
-//        sab_int = ((sab[*, vis_inf + 1] - sab[*, vis_inf]) * vis + sab[*, vis_inf] * vis_gr[vis_inf + 1] - $
-//        sab[*, vis_inf + 1] * vis_gr[vis_inf]) * delta
-//                endif
-//
-//        for i = 0, num_pix - 1 do begin
-//                surf_refl = x[2 * i] * ro_veg + x[2 * i + 1] * ro_sue
-//        toa[i, *] = lpw_int + surf_refl * etw_int  / !pi / (1 - sab_int * surf_refl)
-//        chi_sq[i] = total((wl_center_inv * (ref_pix[i,*] - toa[i,*])) ^ 2.) ;ref_pix ya corregidos con (1.e-4 * d * d)
-//        endfor
-//
-//                minim = total(weight * chi_sq)
-//                ;stop
-//        ;  if vis ne vis_old then stop
-//                vis_old = vis
-//
-//        endif else minim = 5.e+8
-//
-//        ;print, 'leaving "minim_TOA"'
-//        return, minim
-//
-//                END
-
-
-
-
-        return 0;
     }
 
     public double[] getChiSquare() {
         return chiSquare;
     }
 
-    public void setVisLowerLim(double visLowerLim) {
-        this.visLowerLim = visLowerLim;
+    public void setEmVegIndex(int emVegIndex) {
+        this.emVegIndex = emVegIndex;
     }
 
-    public void setVisUpperLim(double visUpperLim) {
-        this.visUpperLim = visUpperLim;
+    public void setWeight(double[] weight) {
+        this.weight = weight;
     }
 
-    public void setVisArray(double[] visArray) {
-        this.visArray = visArray;
-    }
-
-    public void setLpwArray(double[][] lpwArray) {
-        this.lpwArray = lpwArray;
-    }
-
-    public void setEtwArray(double[][] etwArray) {
-        this.etwArray = etwArray;
-    }
-
-    public void setSabArray(double[][] sabArray) {
-        this.sabArray = sabArray;
-    }
 }

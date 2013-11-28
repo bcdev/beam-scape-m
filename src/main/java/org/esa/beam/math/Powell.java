@@ -8,7 +8,6 @@ package org.esa.beam.math;
  */
 public class Powell {
 
-    private final double fTol = 1.E-4;
     private static final int ITMAX = 1000;
 
     /**
@@ -83,26 +82,4 @@ public class Powell {
         }
     }
 
-    /**
-     *
-     * @param powellInput  - starting point vector
-     * @param xiInput
-     * @param weight
-     *@param lpw
-     * @param etw
-     * @param sab @return chiSqr = new double[ScapeMConstants.NUM_REF_PIXELS];
-     */
-    public PowellResult compute(double[] powellInput, double[][] xiInput, double[] weight, double[][] lpw, double[][] etw, double[][] sab) {
-        //To change body of created methods use File | Settings | File Templates.
-        // todo: implement (take from Synergy)
-
-        return null;
-    }
-
-    public PowellResult compute(double[] powellInput, double[][] xiInput, double[] weight) {
-        //To change body of created methods use File | Settings | File Templates.
-        // todo: implement (take from Synergy)
-
-        return null;
-    }
 }

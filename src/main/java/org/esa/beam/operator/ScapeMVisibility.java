@@ -9,23 +9,25 @@ import org.esa.beam.framework.dataop.dem.ElevationModel;
 import org.esa.beam.framework.gpf.OperatorException;
 import org.esa.beam.framework.gpf.Tile;
 import org.esa.beam.io.LutAccess;
+import org.esa.beam.math.Powell;
 import org.esa.beam.meris.l2auxdata.Constants;
 import org.esa.beam.meris.l2auxdata.L2AuxData;
 import org.esa.beam.util.CellSample;
 import org.esa.beam.util.CellSampleComparator;
-import org.esa.beam.math.Powell;
 import org.esa.beam.util.ScapeMUtils;
+import org.esa.beam.util.Varsol;
 import org.esa.beam.util.math.LookupTable;
 import org.esa.beam.util.math.MathUtils;
 import org.esa.beam.watermask.operator.WatermaskClassifier;
 
 import java.awt.*;
 import java.io.IOException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 /**
- * Class representing SCAPE-M algorithm
+ * Class representing visibility part of SCAPE-M algorithm
  *
  * @author Tonio Fincke, Olaf Danne
  */
@@ -48,10 +50,8 @@ public class ScapeMVisibility implements Constants {
     private double cwvMin;
     private double cwvMax;
 
-    private double[] visArray;
+    private double[] visArrayLUT;
 
-
-    private static double wvInit = 2.0;
 
     public ScapeMVisibility(L2AuxData auxData) {
         l2AuxData = auxData;
@@ -63,11 +63,11 @@ public class ScapeMVisibility implements Constants {
      * <p/>
      * // todo describe parameters
      *
-     * @param rect
-     * @param geoCoding
-     * @param cloudFlags
-     * @param classifier
-     * @return
+     * @param rect - cell rectangle
+     * @param geoCoding - geocoding
+     * @param cloudFlags - cloud flags
+     * @param classifier - watermask classifier
+     * @return boolean
      */
     boolean isCellClearLand(Rectangle rect,
                             GeoCoding geoCoding,
@@ -102,7 +102,11 @@ public class ScapeMVisibility implements Constants {
     /**
      * Returns the elevation mean value (in km) over all land pixels in a 30x30km cell
      *
-     * @return
+     * @param hSurfCell - hsurf single values
+     * @param geoCoding  - geocoding
+     * @param classifier - watermask classifier
+     * @return hsurf cell mean value
+     * @throws Exception
      */
     double getHsurfMeanCell(double[][] hSurfCell,
                             GeoCoding geoCoding,
@@ -131,7 +135,6 @@ public class ScapeMVisibility implements Constants {
 
     double[][] getHsurfArrayCell(Rectangle rect,
                                  GeoCoding geoCoding,
-                                 WatermaskClassifier classifier,
                                  ElevationModel elevationModel) throws Exception {
 
         double[][] hSurf = new double[rect.width][rect.height];
@@ -210,7 +213,7 @@ public class ScapeMVisibility implements Constants {
                                WatermaskClassifier classifier) throws Exception {
 
         double[][] toa = new double[rect.width][rect.height];
-        double varSol = ScapeMUtils.varSol(doy);
+        double varSol = Varsol.getVarSol(doy);
         final double solFactor = varSol * varSol * 1.E-4;
 
         for (int y = rect.y; y < rect.y + rect.height; y++) {
@@ -239,17 +242,17 @@ public class ScapeMVisibility implements Constants {
      * <p/>
      * // todo describe parameters
      *
-     * @param toaArrayCell
-     * @param toaMinCell
-     * @param vza
-     * @param sza
-     * @param raa
-     * @param hsurfArrayCell
-     * @param hsurfMeanCell
-     * @param cosSzaArrayCell
-     * @param cosSzaMeanCell
-     * @param cellIsClear45Percent
-     * @return
+     * @param toaArrayCell - toa refl single values
+     * @param toaMinCell - toa min cell value
+     * @param vza - vza
+     * @param sza - sza
+     * @param raa - raa
+     * @param hsurfArrayCell - hsurf single values
+     * @param hsurfMeanCell  - hsurf mean cell value
+     * @param cosSzaArrayCell - cosSza singe values
+     * @param cosSzaMeanCell  - cosSza mean cell value
+     * @param cellIsClear45Percent - true if cell is > 45% clea land
+     * @return  visibility
      */
     public double getCellVisibility(double[][][] toaArrayCell,
                                     double[] toaMinCell, double vza, double sza, double raa,
@@ -259,16 +262,17 @@ public class ScapeMVisibility implements Constants {
                                     double cosSzaMeanCell, // mus_il
                                     boolean cellIsClear45Percent) {
 
-        final int nVis = 7;
+        final int nVis = visArrayLUT.length;
         final double[] step = {1.0, 0.1};
+        final double wvInit = 2.0;
 
-        double vis = visArray[0] - step[0];
+        double vis = visArrayLUT[0] - step[0];
         for (int i = 0; i <= 1; i++) {
             if (i == 1) {
-                vis = Math.max(vis - step[0], visArray[0]);
+                vis = Math.max(vis - step[0], visArrayLUT[0]);
             }
             boolean repeat = true;
-            while (vis + step[i] < visArray[i] && repeat == true) {
+            while (((vis + step[i]) < visArrayLUT[i]) && (repeat == true)) {
                 vis += step[i];
                 double[][] fInt = LutAccess.interpolAtmParamLut(atmParamLut, vza, sza, raa, hsurfMeanCell, vis, wvInit);
                 repeat = false;
@@ -279,7 +283,6 @@ public class ScapeMVisibility implements Constants {
                 }
             }
         }
-        double visLim = vis - step[1];
         double visVal = vis - step[1];
 
         if (cellIsClear45Percent) {
@@ -310,7 +313,6 @@ public class ScapeMVisibility implements Constants {
             // nothing to do - keep visVal as it was before
         }
 
-
         return visVal;
     }
 
@@ -319,13 +321,13 @@ public class ScapeMVisibility implements Constants {
      * <p/>
      * // todo describe parameters
      *
-     * @param bandId
-     * @param hsurfArrayCell
-     * @param hsurfMeanCell
-     * @param cosSzaArrayCell
-     * @param cosSzaMeanCell
-     * @param toaArrayCell
-     * @return double[][] refPixels = double[selectedPixels][NUM_REF_PIXELS] ; selectedPixels is different for each cell
+     * @param bandId - band ID
+     * @param hsurfArrayCell  - hsurf single values
+     * @param hsurfMeanCell   - hsurf mean cell value
+     * @param cosSzaArrayCell  - cosSza single values
+     * @param cosSzaMeanCell - cosSza mean cell values
+     * @param toaArrayCell  - toa single values
+     * @return double[][] refPixels = double[selectedPixels][NUM_REF_PIXELS]
      */
     private double[][] extractRefPixels(int bandId, double[][] hsurfArrayCell, double hsurfMeanCell,
                                         double[][] cosSzaArrayCell, double cosSzaMeanCell, double[][][] toaArrayCell) {
@@ -333,8 +335,8 @@ public class ScapeMVisibility implements Constants {
         final int cellWidth = toaArrayCell[0].length;
         final int cellHeight = toaArrayCell[0][0].length;
 
-        double[] hsurfLim = new double[]{0.8 * hsurfMeanCell, 1.2 * hsurfMeanCell};
-        double[] cosSzaLim = new double[]{0.9 * cosSzaMeanCell, 1.1 * cosSzaMeanCell};
+        final double[] hsurfLim = new double[]{0.8 * hsurfMeanCell, 1.2 * hsurfMeanCell};
+        final double[] cosSzaLim = new double[]{0.9 * cosSzaMeanCell, 1.1 * cosSzaMeanCell};
 
         double[][] ndvi = new double[cellWidth][cellHeight];
         List<CellSample> ndviHighList = new ArrayList<CellSample>();
@@ -423,9 +425,9 @@ public class ScapeMVisibility implements Constants {
         hsfMin = hsfArray[0];
         hsfMax = hsfArray[hsfArray.length - 1];
 
-        visArray = atmParamLut.getDimension(4).getSequence();
-        visMin = visArray[0];
-        visMax = visArray[visArray.length - 1];
+        visArrayLUT = atmParamLut.getDimension(4).getSequence();
+        visMin = visArrayLUT[0];
+        visMax = visArrayLUT[visArrayLUT.length - 1];
 
         final double[] cwvArray = atmParamLut.getDimension(5).getSequence();
         cwvMin = cwvArray[0];
@@ -434,6 +436,7 @@ public class ScapeMVisibility implements Constants {
 
 
     private boolean isOutsideLutRange(double vza, double sza, double raa, double hsf, double vis, double cwv) {
+        // todo: check if needed
         return (vza < vzaMin || vza > vzaMax) ||
                 (sza < szaMin || sza > szaMax) ||
                 (raa < raaMin || raa > raaMax) ||
@@ -450,17 +453,18 @@ public class ScapeMVisibility implements Constants {
 
         private void compute(double[][][] refPixels, double vza, double sza, double raa, double hsurfMeanCell, double wvInit, double cosSzaMeanCell) {
 
-            int numSpec = 2;
-            int numX = numSpec * ScapeMConstants.NUM_REF_PIXELS + 1;
+            final int numSpec = 2;
+            final int numX = numSpec * ScapeMConstants.NUM_REF_PIXELS + 1;
+
             double[] powellInputInit = new double[numX];
             double visLim = visVal;
 
-            double[][] lpw = new double[L1_BAND_NUM][visArray.length];
-            double[][] etw = new double[L1_BAND_NUM][visArray.length];
-            double[][] sab = new double[L1_BAND_NUM][visArray.length];
+            double[][] lpw = new double[L1_BAND_NUM][visArrayLUT.length];
+            double[][] etw = new double[L1_BAND_NUM][visArrayLUT.length];
+            double[][] sab = new double[L1_BAND_NUM][visArrayLUT.length];
 
-            for (int i = 0; i < visArray.length; i++) {
-                double[][] fInt = LutAccess.interpolAtmParamLut(atmParamLut, vza, sza, raa, hsurfMeanCell, visArray[i], wvInit);
+            for (int i = 0; i < visArrayLUT.length; i++) {
+                double[][] fInt = LutAccess.interpolAtmParamLut(atmParamLut, vza, sza, raa, hsurfMeanCell, visArrayLUT[i], wvInit);
                 for (int bandId = 0; bandId < L1_BAND_NUM; bandId++) {
                     lpw[bandId][i] = fInt[bandId][0];
                     etw[bandId][i] = fInt[bandId][1] * cosSzaMeanCell + fInt[bandId][2];
@@ -470,9 +474,9 @@ public class ScapeMVisibility implements Constants {
 
             for (int j = 0; j < ScapeMConstants.NUM_REF_PIXELS; j++) {
                 final double ndvi = (refPixels[12][0][j] - refPixels[7][0][j]) / (refPixels[12][0][j] + refPixels[7][0][j]);
-                final double tmp = 1.3 * ndvi + 0.25;
-                powellInputInit[numSpec * j] = Math.max(tmp, 0.0);
-                powellInputInit[numSpec * j + 1] = Math.max(1.0 - tmp, 0.0);
+                final double ndviMod = 1.3 * ndvi + 0.25;
+                powellInputInit[numSpec * j] = Math.max(ndviMod, 0.0);
+                powellInputInit[numSpec * j + 1] = Math.max(1.0 - ndviMod, 0.0);
             }
             powellInputInit[numX - 1] = 23.0;
 
@@ -480,9 +484,6 @@ public class ScapeMVisibility implements Constants {
             for (int i = 0; i < numX; i++) {
                 xi[i][i] = 1.0;
             }
-
-
-            double[][] toa = new double[ScapeMConstants.NUM_REF_PIXELS][L1_BAND_NUM];
 
             final int limRefSets = 1;    // for AOT_time_flg eq 1, see .inp file
             final int nEMVeg = 3;    // for AOT_time_flg eq 1, see .inp file
@@ -493,8 +494,7 @@ public class ScapeMVisibility implements Constants {
             double[] fminArr = new double[nEMVeg];
             double[] visArrAux = new double[nEMVeg];
 
-
-            Powell powell = new Powell();
+            ToaMinimization toaMinimization = new ToaMinimization(visLim, visArrayLUT, lpw, etw, sab, refPixels, 0.0);
             for (int i = 0; i < nRefSets; i++) {
                 for (int j = 0; j < nEMVeg; j++) {
                     double[] xVector = powellInputInit.clone();
@@ -503,19 +503,14 @@ public class ScapeMVisibility implements Constants {
 
                     final double[] weight = new double[]{2., 2., 1.5, 1.5, 1.};
 
+                    toaMinimization.setEmVegIndex(j);
+                    toaMinimization.setWeight(weight);
+
                     // 'minim_TOA' is the function to be minimized by Powell!
                     // we have to  use this kind of interface:
-//                    PowellTestFunction_1 function1 = new PowellTestFunction_1();
-//                    double fmin = Powell.fmin(xVector, xi, ftol, function1);
-
-                    ToaMinimization toaMinimization = new ToaMinimization();
-                    toaMinimization.setVisLowerLim(visLim);
-                    toaMinimization.setVisArray(visArray);
-                    toaMinimization.setLpwArray(lpw);
-                    toaMinimization.setEtwArray(etw);
-                    toaMinimization.setSabArray(sab);
-                    // todo: move weight, lpw, etw, sab,... in toaMinimization
-                    double fmin = powell.fmin(xVector,
+                    // PowellTestFunction_1 function1 = new PowellTestFunction_1();
+                    // double fmin = Powell.fmin(xVector, xi, ftol, function1);
+                    double fmin = Powell.fmin(xVector,
                                               xiInput,
                                               ScapeMConstants.POWELL_FTOL,
                                               toaMinimization);
@@ -531,8 +526,9 @@ public class ScapeMVisibility implements Constants {
                     if (chiSqrOutsideRangeCount > 0) {
                         for (int k = 0; k < chiSqr.length; k++) {
                             if (chiSqr[k] > 2.0 * chiSqrMean) {
-                                weight[k] = 0.0;  // todo: move weights into toaMinimization
-                                fmin = powell.fmin(xVector,
+                                weight[k] = 0.0;
+                                toaMinimization.setWeight(weight);
+                                fmin = Powell.fmin(xVector,
                                                    xiInput,
                                                    ScapeMConstants.POWELL_FTOL,
                                                    toaMinimization);
@@ -589,10 +585,6 @@ public class ScapeMVisibility implements Constants {
 
         private double getEmCode() {
             return emCode;
-        }
-
-        private void setEmCode(double emCode) {
-            this.emCode = emCode;
         }
     }
 

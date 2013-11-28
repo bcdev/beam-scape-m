@@ -1,16 +1,14 @@
 package org.esa.beam.math;
 
 /**
- * Implements test function 1:  f(x0, x1) = (x0 + 2.0*x1) * EXP(-x0*x0 -x1*x1)
+ * Implements simple 2D test function:  f(x0, x1) = (x0 + 2.0*x1) * EXP(-x0*x0 -x1*x1)
  *
  * @author olafd
  */
-public class PowellTestFunction_1 implements MvFunction {
+public class PowellTestFunction2D implements MvFunction {
 
     @Override
     public double f(double[] x) {
-        // implement test function 1:  f(x0, x1) = (x0 + 2.0*x1) * EXP(-x0*x0 -x1*x1)
-
         if (x.length != 2) {
             return -1;
         } else {
