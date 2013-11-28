@@ -29,7 +29,7 @@ import java.util.List;
  *
  * @author Tonio Fincke, Olaf Danne
  */
-public class ScapeMCorrection implements Constants {
+public class ScapeMVisibility implements Constants {
 
     // Auxdata
     protected L2AuxData l2AuxData;
@@ -53,13 +53,15 @@ public class ScapeMCorrection implements Constants {
 
     private static double wvInit = 2.0;
 
-    public ScapeMCorrection(L2AuxData auxData) {
+    public ScapeMVisibility(L2AuxData auxData) {
         l2AuxData = auxData;
         readAuxdata();
     }
 
     /**
      * Determines if cell is regarded as 'clear land' : > 35% must not be water or cloud
+     * <p/>
+     * // todo describe parameters
      *
      * @param rect
      * @param geoCoding
@@ -234,6 +236,8 @@ public class ScapeMCorrection implements Constants {
 
     /**
      * gets the visibility for a 30x30km cell
+     * <p/>
+     * // todo describe parameters
      *
      * @param toaArrayCell
      * @param toaMinCell
@@ -263,16 +267,10 @@ public class ScapeMCorrection implements Constants {
             if (i == 1) {
                 vis = Math.max(vis - step[0], visArray[0]);
             }
-            //        repeat begin
-            //        vis = vis + stp[i]   ; OD: vis = 10.0 if i=0
-            //        f_int = interpol_lut(vza, sza, phi, hsurf, vis, wv)  ; OD: I understand that this result represents a 30x30km cell...
-            //        wh_neg = where(min_toa[0:n_vis] le reform(f_int[0, 0:n_vis]), cnt_neg)
-            //        endrep until (cnt_neg eq 0 or vis+stp[i] ge vis_gr[dim_vis - 1])
             boolean repeat = true;
             while (vis + step[i] < visArray[i] && repeat == true) {
                 vis += step[i];
                 double[][] fInt = LutAccess.interpolAtmParamLut(atmParamLut, vza, sza, raa, hsurfMeanCell, vis, wvInit);
-//                wh_neg = where(min_toa[0:n_vis] le reform(f_int[0, 0:n_vis]), cnt_neg)
                 repeat = false;
                 for (int j = 0; j < nVis; j++) {
                     if (toaMinCell[j] <= fInt[j][0]) {
@@ -281,66 +279,36 @@ public class ScapeMCorrection implements Constants {
                 }
             }
         }
+        double visLim = vis - step[1];
         double visVal = vis - step[1];
 
         if (cellIsClear45Percent) {
-            // extract_ref_pixels, dem_sub, mus_il_sub, rad_sub_arr,
-            // width_win, height_win, num_bd, num_pix, wl_center, ref_pix_all, valid_flg
             double[][] refPixelsBand0 =
                     extractRefPixels(0, hsurfArrayCell, hsurfMeanCell, cosSzaArrayCell, cosSzaMeanCell, toaArrayCell);
             double[][][] refPixels = new double[L1_BAND_NUM][refPixelsBand0.length][refPixelsBand0[0].length];
             refPixels[0] = refPixelsBand0;
+
+            boolean invalid = false;
             for (int bandId = 1; bandId < L1_BAND_NUM; bandId++) {
                 refPixels[bandId] =
                         extractRefPixels(bandId, hsurfArrayCell, hsurfMeanCell, cosSzaArrayCell, cosSzaMeanCell, toaArrayCell);
+                if (refPixels[bandId] == null) {
+                    invalid = true; // we want valid pixels in ALL bands
+                    break;
+                }
             }
 
-
-            //        if valid_flg eq 1 then begin;  OD: seems that we only have refPixels if valid_flg = 1
-
-            //        inversion_MERIS_AOT, num_pix, num_bd, ref_pix_all, wl_center,
-            //                             vza, sza, phi, hsurf, wv, mus_il, vis_lim, AOT_time_flg, $
-            //                             vis_val, vis_stddev, EM_code
-            InversionMerisAot inversionMerisAot = new InversionMerisAot();
-            inversionMerisAot.setVisVal(visVal);
-            inversionMerisAot.compute(refPixels, vza, sza, raa, hsurfMeanCell, wvInit, cosSzaMeanCell);
-            visVal = inversionMerisAot.getVisVal();
-            double visStdev = inversionMerisAot.getVisStdev();       // not needed? does not seem to be used in IDL
-            double emCode = inversionMerisAot.getEmCode();           // not needed? does not seem to be used in IDL
-
-            // todo continue
-
+            if (!invalid) {
+                InversionMerisAot inversionMerisAot = new InversionMerisAot();
+                inversionMerisAot.setVisVal(visVal);
+                inversionMerisAot.compute(refPixels, vza, sza, raa, hsurfMeanCell, wvInit, cosSzaMeanCell);
+                visVal = inversionMerisAot.getVisVal();
+                double visStdev = inversionMerisAot.getVisStdev();       // not needed? does not seem to be further used in IDL
+                double emCode = inversionMerisAot.getEmCode();           // not needed? does not seem to be further used in IDL
+            }
         } else {
             // nothing to do - keep visVal as it was before
         }
-
-//        if float(cont_land_bri) / tot_pix gt 0.45 then begin;
-//        OD:
-//        get reference pixels and compute 'reference' visibility...
-//        mus_il_sub = mus_il_sub[wh_land_bri]
-//        dem_sub = dem_sub[wh_land_bri]
-//
-//        mus_il = mean(mus_il_sub)
-//        hsurf = mean(dem_sub)
-//
-//        rad_sub_arr = fltarr(cont_land_bri, num_bd)
-//        for jj = 0, num_bd - 1 do rad_sub_arr[ *, jj]=rad_sub[wh_land_bri + jj * tot_pix] * fac * cal_coef[jj]
-//
-//        extract_ref_pixels, dem_sub, mus_il_sub, rad_sub_arr, width_win, height_win, num_bd, num_pix, wl_center, ref_pix_all, valid_flg
-//
-//        if valid_flg eq 1 then begin;
-//        min_toa = fltarr(num_bd)
-//        ;
-//        for k = 0, num_bd - 1 do min_toa[k] = min(rad_sub_arr[ *, k])
-//        min_toa = min(rad_sub_arr, dimension = 1)
-//
-//        inversion_MERIS_AOT, num_pix, num_bd, ref_pix_all, wl_center, vza, sza, phi, hsurf, wv, mus_il, vis_lim, AOT_time_flg, $
-//        vis_val, vis_stddev, EM_code
-//        EM_code_mat[indx, indy]=EM_code
-//        mat_codes[indx, indy]=valid_flg
-//
-//                endif
-//        endif
 
 
         return visVal;
@@ -348,6 +316,8 @@ public class ScapeMCorrection implements Constants {
 
     /**
      * for given bandId, gives TOA for reference pixels selected from NDVI criteria
+     * <p/>
+     * // todo describe parameters
      *
      * @param bandId
      * @param hsurfArrayCell
@@ -424,8 +394,7 @@ public class ScapeMCorrection implements Constants {
             }
         } else {
             //                valid_flg = 0
-            return null;
-            // todo: further check this condition
+            return null;     // todo: check if this is ok
         }
 
         return refPixels;
@@ -473,37 +442,18 @@ public class ScapeMCorrection implements Constants {
                 (cwv < cwvMin || cwv > cwvMax);
     }
 
+    // todo: check if we just need the 'compute' method
     class InversionMerisAot {
         private double visVal;
         private double visStdev;
         private double emCode;
 
         private void compute(double[][][] refPixels, double vza, double sza, double raa, double hsurfMeanCell, double wvInit, double cosSzaMeanCell) {
-            // todo: implement       line 1921ff in IDL
-
-
-            // call (l. 1218) :
-//            inversion_MERIS_AOT, num_pix, num_bd, ref_pix_all, wl_center, vza, sza, phi, hsurf, wv, mus_il, vis_lim, AOT_time_flg, $
-//            vis_val, vis_stddev, EM_code
 
             int numSpec = 2;
             int numX = numSpec * ScapeMConstants.NUM_REF_PIXELS + 1;
             double[] powellInputInit = new double[numX];
             double visLim = visVal;
-
-            final int numExtractedPixels = refPixels[0].length;
-            for (int j = 0; j < ScapeMConstants.NUM_REF_PIXELS; j++) {
-                final double ndvi = (refPixels[12][0][j] - refPixels[7][0][j]) / (refPixels[12][0][j] + refPixels[7][0][j]);
-                final double tmp = 1.3 * ndvi + 0.25;
-                powellInputInit[numSpec * j] = Math.max(tmp, 0.0);
-                powellInputInit[numSpec * j + 1] = Math.max(1.0 - tmp, 0.0);
-            }
-            powellInputInit[numX - 1] = 23.0;
-
-            double[][] xi = new double[numX][numX];
-            for (int i = 0; i < numX; i++) {
-                xi[i][i] = 1.0;
-            }
 
             double[][] lpw = new double[L1_BAND_NUM][visArray.length];
             double[][] etw = new double[L1_BAND_NUM][visArray.length];
@@ -517,6 +467,20 @@ public class ScapeMCorrection implements Constants {
                     sab[bandId][i] = fInt[bandId][4];
                 }
             }
+
+            for (int j = 0; j < ScapeMConstants.NUM_REF_PIXELS; j++) {
+                final double ndvi = (refPixels[12][0][j] - refPixels[7][0][j]) / (refPixels[12][0][j] + refPixels[7][0][j]);
+                final double tmp = 1.3 * ndvi + 0.25;
+                powellInputInit[numSpec * j] = Math.max(tmp, 0.0);
+                powellInputInit[numSpec * j + 1] = Math.max(1.0 - tmp, 0.0);
+            }
+            powellInputInit[numX - 1] = 23.0;
+
+            double[][] xi = new double[numX][numX];
+            for (int i = 0; i < numX; i++) {
+                xi[i][i] = 1.0;
+            }
+
 
             double[][] toa = new double[ScapeMConstants.NUM_REF_PIXELS][L1_BAND_NUM];
 
@@ -533,19 +497,76 @@ public class ScapeMCorrection implements Constants {
             Powell powell = new Powell();
             for (int i = 0; i < nRefSets; i++) {
                 for (int j = 0; j < nEMVeg; j++) {
-                    double[] powellInput = powellInputInit.clone();
-                    powellInput[10] = visLim + 0.01;
+                    double[] xVector = powellInputInit.clone();
+                    xVector[10] = visLim + 0.01;
                     double[][] xiInput = xi.clone();
 
                     final double[] weight = new double[]{2., 2., 1.5, 1.5, 1.};
 
-                    // todo: chiSqr is computed in 'minim_TOA' being invoked from Powell. check how to handle this here
                     // 'minim_TOA' is the function to be minimized by Powell!
-                    double[] chiSqr = powell.compute(powellInput, xiInput, 20000); // ???
+                    // we have to  use this kind of interface:
+//                    PowellTestFunction_1 function1 = new PowellTestFunction_1();
+//                    double fmin = Powell.fmin(xVector, xi, ftol, function1);
+
+                    ToaMinimization toaMinimization = new ToaMinimization();
+                    toaMinimization.setVisLowerLim(visLim);
+                    toaMinimization.setVisArray(visArray);
+                    toaMinimization.setLpwArray(lpw);
+                    toaMinimization.setEtwArray(etw);
+                    toaMinimization.setSabArray(sab);
+                    // todo: move weight, lpw, etw, sab,... in toaMinimization
+                    double fmin = powell.fmin(xVector,
+                                              xiInput,
+                                              ScapeMConstants.POWELL_FTOL,
+                                              toaMinimization);
+                    double[] chiSqr = toaMinimization.getChiSquare();
                     double chiSqrMean = ScapeMUtils.getMeanDouble1D(chiSqr);
 
-
+                    int chiSqrOutsideRangeCount = 0;
+                    for (int k = 0; k < chiSqr.length; k++) {
+                        if (chiSqr[k] > 2.0 * chiSqrMean) {
+                            chiSqrOutsideRangeCount++;
+                        }
+                    }
+                    if (chiSqrOutsideRangeCount > 0) {
+                        for (int k = 0; k < chiSqr.length; k++) {
+                            if (chiSqr[k] > 2.0 * chiSqrMean) {
+                                weight[k] = 0.0;  // todo: move weights into toaMinimization
+                                fmin = powell.fmin(xVector,
+                                                   xiInput,
+                                                   ScapeMConstants.POWELL_FTOL,
+                                                   toaMinimization);
+                            }
+                        }
+                    }
+                    visArrAux[j] = xVector[numX - 1];
+                    fminArr[j] = fmin / (5.0 - chiSqrOutsideRangeCount);
                 }
+                final int fMinIndex = ScapeMUtils.getMinimumIndexDouble1D(fminArr);
+                visArr[i] = visArrAux[fMinIndex];
+                emCode = fMinIndex + 1;
+            }
+
+            if (nRefSets > 1) {
+                double visMean = ScapeMUtils.getMeanDouble1D(visArr);
+                setVisStdev(ScapeMUtils.getStdevDouble1D(visArr));
+
+                List<Double> visArrInsideStdevList = new ArrayList<Double>();
+                for (int i = 0; i < nRefSets; i++) {
+                    if (Math.abs(visArr[i] - visMean) <= 1.5 * visStdev) {
+                        visArrInsideStdevList.add(visArr[i]);
+                    }
+                }
+                Double[] visArrInsideStdev = visArrInsideStdevList.toArray(new Double[visArrInsideStdevList.size()]);
+                if (visArrInsideStdev.length > 0) {
+                    setVisVal(ScapeMUtils.getMeanDouble1D(visArrInsideStdev));
+                    setVisStdev(ScapeMUtils.getStdevDouble1D(visArrInsideStdev));
+                } else {
+                    setVisVal(visMean);
+                }
+            } else {
+                setVisVal(visArr[0]);
+                setVisStdev(0.0);
             }
 
         }

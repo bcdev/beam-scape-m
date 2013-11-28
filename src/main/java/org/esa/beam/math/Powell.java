@@ -84,12 +84,22 @@ public class Powell {
     }
 
     /**
-     * @param powellInput
+     *
+     * @param powellInput  - starting point vector
      * @param xiInput
-     * @param itermax
-     * @return chiSqr = new double[ScapeMConstants.NUM_REF_PIXELS];
+     * @param weight
+     *@param lpw
+     * @param etw
+     * @param sab @return chiSqr = new double[ScapeMConstants.NUM_REF_PIXELS];
      */
-    public double[] compute(double[] powellInput, double[][] xiInput, int itermax) {
+    public PowellResult compute(double[] powellInput, double[][] xiInput, double[] weight, double[][] lpw, double[][] etw, double[][] sab) {
+        //To change body of created methods use File | Settings | File Templates.
+        // todo: implement (take from Synergy)
+
+        return null;
+    }
+
+    public PowellResult compute(double[] powellInput, double[][] xiInput, double[] weight) {
         //To change body of created methods use File | Settings | File Templates.
         // todo: implement (take from Synergy)
 

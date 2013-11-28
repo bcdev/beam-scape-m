@@ -42,5 +42,55 @@ public class ScapeMUtils {
         return mean / src.length;
     }
 
+    public static double getMeanDouble1D(Double[] src) {
+        double mean = 0.0;
+        for (int i = 0; i < src.length; i++) {
+            mean += src[i].doubleValue();
+        }
+        return mean / src.length;
+    }
+
+
+    public static double getMinimumDouble1D(double[] src) {
+        double min = Double.MAX_VALUE;
+        for (int i = 0; i < src.length; i++) {
+            if (src[i] < min) {
+                min = src[i];
+            }
+        }
+        return min;
+    }
+
+    public static int getMinimumIndexDouble1D(double[] src) {
+        double min = Double.MAX_VALUE;
+        int minIndex = -1;
+        for (int i = 0; i < src.length; i++) {
+            if (src[i] < min) {
+                min = src[i];
+                minIndex = i;
+            }
+        }
+        return minIndex;
+    }
+
+    public static double getStdevDouble1D(double[] src) {
+        double diffSqr = 0.0;
+        double mean = getMeanDouble1D(src);
+        for (int i = 0; i < src.length; i++) {
+            diffSqr += Math.pow(src[i] - mean, 2.0);
+        }
+        return Math.sqrt(diffSqr/(src.length-1));
+    }
+
+    public static double getStdevDouble1D(Double[] src) {
+        double diffSqr = 0.0;
+        double mean = getMeanDouble1D(src);
+        for (int i = 0; i < src.length; i++) {
+            diffSqr += Math.pow(src[i].doubleValue() - mean, 2.0);
+        }
+        return Math.sqrt(diffSqr/(src.length-1));
+    }
+
+
 
 }
