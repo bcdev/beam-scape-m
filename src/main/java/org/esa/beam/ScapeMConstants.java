@@ -7,6 +7,9 @@ package org.esa.beam;
  */
 public class ScapeMConstants {
 
+    public static final int RR_PIXELS_PER_CELL = 30;
+    public static final int FR_PIXELS_PER_CELL = 120;
+
     public final static float[] MERIS_WAVELENGTHS = {
             412.545f, 442.401f, 489.744f, 509.7f, 559.634f,
             619.62f, 664.64f, 680.902f, 708.426f, 753.472f,

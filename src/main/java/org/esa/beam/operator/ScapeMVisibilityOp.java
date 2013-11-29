@@ -1,6 +1,7 @@
 package org.esa.beam.operator;
 
 import com.bc.ceres.core.ProgressMonitor;
+import org.esa.beam.ScapeMConstants;
 import org.esa.beam.dataio.envisat.EnvisatConstants;
 import org.esa.beam.framework.datamodel.*;
 import org.esa.beam.framework.dataop.dem.ElevationModel;
@@ -53,9 +54,6 @@ public class ScapeMVisibilityOp extends MerisBasisOp implements Constants {
     public static final String RADIANCE_BAND_PREFIX = "radiance";
 
     public static final String VISIBILITY_BAND_NAME = "cell_visibility";
-
-    public static final int RR_PIXELS_PER_CELL = 30;
-    public static final int FR_PIXELS_PER_CELL = 120;
 
     protected ScapeMVisibility scapeMVisibility;
 
@@ -184,9 +182,9 @@ public class ScapeMVisibilityOp extends MerisBasisOp implements Constants {
         visibilityBand.setNoDataValueUsed(true);
 
         if (sourceProduct.getProductType().contains("_RR")) {
-            targetProduct.setPreferredTileSize(RR_PIXELS_PER_CELL, RR_PIXELS_PER_CELL);
+            targetProduct.setPreferredTileSize(ScapeMConstants.RR_PIXELS_PER_CELL, ScapeMConstants.RR_PIXELS_PER_CELL);
         } else {
-            targetProduct.setPreferredTileSize(FR_PIXELS_PER_CELL, FR_PIXELS_PER_CELL);
+            targetProduct.setPreferredTileSize(ScapeMConstants.FR_PIXELS_PER_CELL, ScapeMConstants.FR_PIXELS_PER_CELL);
         }
     }
 
