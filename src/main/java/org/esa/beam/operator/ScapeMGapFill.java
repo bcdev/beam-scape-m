@@ -1,11 +1,11 @@
 package org.esa.beam.operator;
 
+import com.bc.ceres.glevel.MultiLevelImage;
 import org.esa.beam.framework.datamodel.Band;
 import org.esa.beam.framework.datamodel.Product;
-import org.esa.beam.framework.datamodel.ProductData;
 
+import java.awt.image.BufferedImage;
 import java.io.IOException;
-import java.util.Arrays;
 
 public class ScapeMGapFill {
 
@@ -19,12 +19,12 @@ public class ScapeMGapFill {
 
     /* package local for testing*/
     static float interpolateOverRegion(float[][] cellSamples,
-                                               int x, int y, int neighboringDistance) {
+                                       int x, int y, int neighboringDistance, double noDataValue) {
         float meanValue = 0;
         int validNeighboringCellsCounter = 0;
         for (int i = -neighboringDistance; i <= neighboringDistance; i++) {
             for (int j = -neighboringDistance; j <= neighboringDistance; j++) {
-                if (cellSamples[x + i][y + j] != -1) {
+                if (cellSamples[x + i][y + j] != noDataValue) {
                     meanValue += cellSamples[x + i][y + j];
                     validNeighboringCellsCounter++;
                 }
@@ -37,7 +37,8 @@ public class ScapeMGapFill {
     }
 
     /* package local for testing*/
-    static float interpolateAtCornerOrBorder(int numberOfCellColumns, int numberOfCellRows, float[][] cellSamples, int x, int y) {
+    static float interpolateAtCornerOrBorder(int numberOfCellColumns, int numberOfCellRows, float[][] cellSamples,
+                                             int x, int y, double noDataValue) {
         float mean = 0;
         int validCellsCounter = 0;
         for (int i = -1; i <= 1; i++) {
@@ -47,7 +48,7 @@ public class ScapeMGapFill {
                 final int minimumDistanceToEdgeAssign
                         = getMinimumDistanceToEdge(xAssign, yAssign, numberOfCellColumns, numberOfCellRows);
                 if (minimumDistanceToEdgeAssign >= 0) {
-                    if (cellSamples[xAssign][yAssign] != -1) {
+                    if (cellSamples[xAssign][yAssign] != noDataValue) {
                         mean += cellSamples[xAssign][yAssign];
                         validCellsCounter++;
                         if (minimumDistanceToEdgeAssign == 0 && (xAssign == x || yAssign == y)) {
@@ -66,6 +67,8 @@ public class ScapeMGapFill {
 
     public static Product gapFill(Product product) throws IOException {
         final Band visibilityBand = product.getBand(ScapeMVisibilityOp.VISIBILITY_BAND_NAME);
+        final double noDataValue = visibilityBand.getNoDataValue();
+        final MultiLevelImage visibilityImage = visibilityBand.getSourceImage();
         final int tileWidth = (int) product.getPreferredTileSize().getWidth();
         final int tileHeight = (int) product.getPreferredTileSize().getHeight();
         final int numberOfCellColumns = product.getSceneRasterWidth() / tileWidth;
@@ -77,43 +80,61 @@ public class ScapeMGapFill {
             for (int x = 0; x < numberOfCellColumns; x++) {
                 final float cellValue = visibilityBand.getSampleFloat(x * tileWidth, y * tileHeight);
                 cellSamples[x][y] = cellValue;
-                if (cellValue != -1) {
+                if (cellValue != noDataValue) {
                     areaMean += cellValue;
                     numberOfValidCells++;
                 }
             }
         }
+        float[][] updatedCellValues = new float[numberOfCellColumns][numberOfCellRows];
         areaMean /= numberOfValidCells;
         for (int y = 0; y < numberOfCellRows; y++) {
             for (int x = 0; x < numberOfCellColumns; x++) {
                 float cellSample = cellSamples[x][y];
-                if (cellSample == -1) {
+                if (cellSample == noDataValue) {
                     float interpolationValue = 0;
                     final int minimumDistanceToEdge = getMinimumDistanceToEdge(x, y,
                                                                                numberOfCellColumns, numberOfCellRows);
                     if (minimumDistanceToEdge >= 2) {
-                        interpolationValue = interpolateOverRegion(cellSamples, x, y, 2);
+                        interpolationValue = interpolateOverRegion(cellSamples, x, y, 2, noDataValue);
                     } else if (minimumDistanceToEdge == 1) {
-                        interpolationValue = interpolateOverRegion(cellSamples, x, y, 1);
+                        interpolationValue = interpolateOverRegion(cellSamples, x, y, 1, noDataValue);
                     } else {
                         interpolationValue = interpolateAtCornerOrBorder(numberOfCellColumns, numberOfCellRows,
-                                                                         cellSamples, x, y);
+                                                                         cellSamples, x, y, noDataValue);
                     }
                     if (interpolationValue == 0 && minimumDistanceToEdge >= 3) {
-                        interpolationValue = interpolateOverRegion(cellSamples, x, y, 3);
+                        interpolationValue = interpolateOverRegion(cellSamples, x, y, 3, noDataValue);
                     }
                     if (interpolationValue == 0) {
                         interpolationValue = areaMean;
                     }
-                    float[] interpolationArray = new float[tileHeight * tileWidth];
-                    Arrays.fill(interpolationArray, interpolationValue);
-                    final ProductData productData = ProductData.createInstance(interpolationArray);
-                    visibilityBand.writeRasterData(x * tileWidth, y * tileHeight, tileWidth, tileHeight,
-                                                        productData, null);
+                    updatedCellValues[x][y] = interpolationValue;
+                } else {
+                    updatedCellValues[x][y] = cellSamples[x][y];
                 }
             }
         }
+        final BufferedImage newSourceImage = getUpdatedSourceImage(tileWidth, tileHeight, updatedCellValues);
+        visibilityBand.setSourceImage(newSourceImage);
         return product;
+    }
+
+    private static BufferedImage getUpdatedSourceImage(int tileWidth, int tileHeight, float[][] updatedCellValues) {
+        final int productWidth = tileWidth * updatedCellValues.length;
+        final int productHeight = tileHeight * updatedCellValues[0].length;
+        BufferedImage sourceImage = new BufferedImage(productWidth, productHeight, BufferedImage.TYPE_USHORT_GRAY);
+        for (int y = 0; y < updatedCellValues[0].length; y++) {
+            for (int x = 0; x < updatedCellValues.length; x++) {
+                for (int i = 0; i < tileHeight; i++) {
+                    for (int j = 0; j < tileWidth; j++) {
+                        sourceImage.getRaster().setSample(x * tileWidth + j,
+                                                          y * tileWidth + i, 0, updatedCellValues[x][y]);
+                    }
+                }
+            }
+        }
+        return sourceImage;
     }
 
 }
