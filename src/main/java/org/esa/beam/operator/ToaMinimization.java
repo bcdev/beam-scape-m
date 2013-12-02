@@ -21,6 +21,7 @@ public class ToaMinimization implements MvFunction, Constants {
     private int emVegIndex;
     private double[] weight;
     private double visOld;
+    private double[] rhoVeg;
 
 
     public ToaMinimization(double visLowerLim, double[] visArrayLUT,
@@ -85,7 +86,7 @@ public class ToaMinimization implements MvFunction, Constants {
             for (int j = 0; j < ScapeMConstants.NUM_REF_PIXELS; j++) {
                 chiSquare[j] = 0.0;
                 for (int i = 0; i < L1_BAND_NUM; i++) {
-                    surfRefl[i] = x[2 * j] * ScapeMConstants.RHO_VEG_ALL[j][i] + x[2 * j + 1] * ScapeMConstants.RHO_SUE[i];
+                    surfRefl[i] = x[2 * j] * rhoVeg[i] + x[2 * j + 1] * ScapeMConstants.RHO_SUE[i];
                     toa[i][j] = lpwInt[i] + surfRefl[i] * etwInt[i] / (Math.PI * (1.0 - sabInt[i] * surfRefl[i]));
                     chiSquare[j] += Math.pow(ScapeMConstants.WL_CENTER_INV[i] * (refPixels[i][emVegIndex][j] - toa[i][j]), 2.0);
                 }
@@ -112,4 +113,8 @@ public class ToaMinimization implements MvFunction, Constants {
         this.weight = weight;
     }
 
+
+    public void setRhoVeg(double[] rhoVeg) {
+        this.rhoVeg = rhoVeg;
+    }
 }

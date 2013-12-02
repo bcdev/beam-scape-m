@@ -3,7 +3,10 @@ package org.esa.beam.operator;
 import com.bc.ceres.core.ProgressMonitor;
 import org.esa.beam.ScapeMConstants;
 import org.esa.beam.dataio.envisat.EnvisatConstants;
-import org.esa.beam.framework.datamodel.*;
+import org.esa.beam.framework.datamodel.Band;
+import org.esa.beam.framework.datamodel.GeoCoding;
+import org.esa.beam.framework.datamodel.Product;
+import org.esa.beam.framework.datamodel.ProductData;
 import org.esa.beam.framework.dataop.dem.ElevationModel;
 import org.esa.beam.framework.dataop.dem.ElevationModelDescriptor;
 import org.esa.beam.framework.dataop.dem.ElevationModelRegistry;
@@ -36,9 +39,9 @@ import java.util.GregorianCalendar;
  * @author Tonio Fincke, Olaf Danne
  */
 @OperatorMetadata(alias = "beam.scapeM.visibility", version = "1.0-SNAPSHOT",
-                  authors = "Tonio Fincke, Olaf Danne",
-                  copyright = "(c) 2013 Brockmann Consult",
-                  description = "Operator for MERIS atmospheric correction with SCAPE-M algorithm: cell visibility retrieval part.")
+        authors = "Tonio Fincke, Olaf Danne",
+        copyright = "(c) 2013 Brockmann Consult",
+        description = "Operator for MERIS atmospheric correction with SCAPE-M algorithm: cell visibility retrieval part.")
 public class ScapeMVisibilityOp extends MerisBasisOp implements Constants {
 
     @Parameter(description = "DEM name", defaultValue = "GETASSE30")
@@ -70,8 +73,10 @@ public class ScapeMVisibilityOp extends MerisBasisOp implements Constants {
         try {
             // todo: this is only for ONE test product to compare with LG dimap input!! check if start time is null.
             if (sourceProduct.getStartTime() == null) {
-                sourceProduct.setStartTime(ProductData.UTC.create(new GregorianCalendar(2006, 8, 19).getTime(), 0));
-                sourceProduct.setEndTime(ProductData.UTC.create(new GregorianCalendar(2006, 8, 19).getTime(), 0));
+                sourceProduct.setStartTime(ProductData.UTC.parse("20060819", "yyyyMMdd"));
+                sourceProduct.setEndTime(ProductData.UTC.parse("20060819", "yyyyMMdd"));
+//                sourceProduct.setStartTime(ProductData.UTC.create(new GregorianCalendar(2006, 8, 19).getTime(), 0));
+//                sourceProduct.setEndTime(ProductData.UTC.create(new GregorianCalendar(2006, 8, 19).getTime(), 0));
 //                int year = sourceProduct.getName()... // todo continue
             }
             l2AuxData = L2AuxDataProvider.getInstance().getAuxdata(sourceProduct);
@@ -100,6 +105,9 @@ public class ScapeMVisibilityOp extends MerisBasisOp implements Constants {
     public void computeTile(Band targetBand, Tile targetTile, ProgressMonitor pm) throws OperatorException {
 
         final Rectangle targetRect = targetTile.getRectangle();
+        if (targetRect.x == 30 && targetRect.y == 0) {
+            System.out.println("targetRect = " + targetRect);
+        }
 
         final Tile szaTile = getSourceTile(sourceProduct.getTiePointGrid(EnvisatConstants.MERIS_SUN_ZENITH_DS_NAME), targetRect);
         final Tile vzaTile = getSourceTile(sourceProduct.getTiePointGrid(EnvisatConstants.MERIS_VIEW_ZENITH_DS_NAME), targetRect);
@@ -124,7 +132,7 @@ public class ScapeMVisibilityOp extends MerisBasisOp implements Constants {
         final GeoCoding geoCoding = sourceProduct.getGeoCoding();
 
         final Tile cloudFlagsTile = getSourceTile(cloudProduct.getBand(IdepixUtils.IDEPIX_CLOUD_FLAGS), targetRect,
-                                                  BorderExtender.createInstance(BorderExtender.BORDER_COPY));
+                BorderExtender.createInstance(BorderExtender.BORDER_COPY));
 
         final boolean cellIsClear35Percent =
                 scapeMVisibility.isCellClearLand(targetRect, geoCoding, cloudFlagsTile, classifier, 0.35);
@@ -168,12 +176,12 @@ public class ScapeMVisibilityOp extends MerisBasisOp implements Constants {
                 final boolean cellIsClear45Percent =
                         scapeMVisibility.isCellClearLand(targetRect, geoCoding, cloudFlagsTile, classifier, 0.45);
                 final double visibility = scapeMVisibility.getCellVisibility(targetRect, toaArrayCell,
-                                                                             toaMinCell, vza, sza, phi,
-                                                                             hsurfArrayCell,
-                                                                             hsurfMeanCell,
-                                                                             cosSzaArrayCell,
-                                                                             cosSzaMeanCell,
-                                                                             cellIsClear45Percent);
+                        toaMinCell, vza, sza, phi,
+                        hsurfArrayCell,
+                        hsurfMeanCell,
+                        cosSzaArrayCell,
+                        cosSzaMeanCell,
+                        cellIsClear45Percent);
 
                 setCellSample(targetTile, targetRect, visibility);
             } catch (Exception e) {

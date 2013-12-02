@@ -303,9 +303,7 @@ public class ScapeMVisibility implements Constants {
                 }
             }
         }
-        if (targetRect.x == 30 && targetRect.y == 0) {
-            System.out.println("targetRect = " + targetRect);
-        }
+
         double visVal = vis - step[1];
 
         if (cellIsClear45Percent) {
@@ -314,7 +312,7 @@ public class ScapeMVisibility implements Constants {
             if (targetRect.x == 30 && targetRect.y == 0) {
                 System.out.println("targetRect = " + targetRect);
             }
-            if (refPixelsBand0 != null) {
+            if (refPixelsBand0 != null && refPixelsBand0.length > 0) {
                 double[][][] refPixels = new double[L1_BAND_NUM][refPixelsBand0.length][refPixelsBand0[0].length];
                 refPixels[0] = refPixelsBand0;
 
@@ -322,10 +320,13 @@ public class ScapeMVisibility implements Constants {
                 for (int bandId = 1; bandId < L1_BAND_NUM; bandId++) {
                     refPixels[bandId] =
                             extractRefPixels(targetRect, bandId, hsurfArrayCell, hsurfMeanCell, cosSzaArrayCell, cosSzaMeanCell, toaArrayCell);
-                    if (refPixels[bandId] == null) {
+                    if (refPixels[bandId] == null && refPixels[bandId].length > 0) {
                         invalid = true; // we want valid pixels in ALL bands
                         break;
                     }
+                }
+                if (targetRect.x == 30 && targetRect.y == 0) {
+                    System.out.println("targetRect = " + targetRect);    // OK until this point!
                 }
 
                 if (!invalid) {
@@ -335,6 +336,9 @@ public class ScapeMVisibility implements Constants {
                     visVal = inversionMerisAot.getVisVal();
                     double visStdev = inversionMerisAot.getVisStdev();       // not needed? does not seem to be further used in IDL
                     double emCode = inversionMerisAot.getEmCode();           // not needed? does not seem to be further used in IDL
+                }
+                if (targetRect.x == 30 && targetRect.y == 0) {
+                    System.out.println("targetRect = " + targetRect);
                 }
             }
         } else {
@@ -419,9 +423,9 @@ public class ScapeMVisibility implements Constants {
                         toaArrayCell[bandId][ndviHighSamples[2 * i + 1].getCellXIndex()][ndviHighSamples[2 * i + 1].getCellYIndex()];
 
                 refPixels[i][2] =
-                        toaArrayCell[bandId][ndviMediumSamples[2 * i].getCellXIndex()][ndviHighSamples[2 * i].getCellYIndex()];
+                        toaArrayCell[bandId][ndviMediumSamples[2 * i].getCellXIndex()][ndviMediumSamples[2 * i].getCellYIndex()];
                 refPixels[i][3] =
-                        toaArrayCell[bandId][ndviMediumSamples[2 * i + 1].getCellXIndex()][ndviHighSamples[2 * i + 1].getCellYIndex()];
+                        toaArrayCell[bandId][ndviMediumSamples[2 * i + 1].getCellXIndex()][ndviMediumSamples[2 * i + 1].getCellYIndex()];
 
                 if (i < ndviLowSamples.length) {
                     refPixels[i][4] =
@@ -542,15 +546,16 @@ public class ScapeMVisibility implements Constants {
 
                     toaMinimization.setEmVegIndex(j);
                     toaMinimization.setWeight(weight);
+                    toaMinimization.setRhoVeg(ScapeMConstants.RHO_VEG_ALL[j]);
 
                     // 'minim_TOA' is the function to be minimized by Powell!
                     // we have to  use this kind of interface:
                     // PowellTestFunction_1 function1 = new PowellTestFunction_1();
                     // double fmin = Powell.fmin(xVector, xi, ftol, function1);
                     double fmin = Powell.fmin(xVector,
-                                              xiInput,
-                                              ScapeMConstants.POWELL_FTOL,
-                                              toaMinimization);
+                            xiInput,
+                            ScapeMConstants.POWELL_FTOL,
+                            toaMinimization);
                     double[] chiSqr = toaMinimization.getChiSquare();
                     double chiSqrMean = ScapeMUtils.getMeanDouble1D(chiSqr);
 
@@ -565,10 +570,12 @@ public class ScapeMVisibility implements Constants {
                             if (chiSqr[k] > 2.0 * chiSqrMean) {
                                 weight[k] = 0.0;
                                 toaMinimization.setWeight(weight);
+                                toaMinimization.setEmVegIndex(j);
+                                toaMinimization.setRhoVeg(ScapeMConstants.RHO_VEG_ALL[j]);
                                 fmin = Powell.fmin(xVector,
-                                                   xiInput,
-                                                   ScapeMConstants.POWELL_FTOL,
-                                                   toaMinimization);
+                                        xiInput,
+                                        ScapeMConstants.POWELL_FTOL,
+                                        toaMinimization);
                             }
                         }
                     }
