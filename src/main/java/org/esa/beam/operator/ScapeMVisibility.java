@@ -63,8 +63,8 @@ public class ScapeMVisibility implements Constants {
      * <p/>
      * // todo describe parameters
      *
-     * @param rect - cell rectangle
-     * @param geoCoding - geocoding
+     * @param rect       - cell rectangle
+     * @param geoCoding  - geocoding
      * @param cloudFlags - cloud flags
      * @param classifier - watermask classifier
      * @return boolean
@@ -78,7 +78,7 @@ public class ScapeMVisibility implements Constants {
         int countCloud2 = 0;
         for (int y = rect.y; y < rect.y + rect.height; y++) {
             for (int x = rect.x; x < rect.x + rect.width; x++) {
-                if (cloudFlags.getSampleBit(x, y, 1)) {   // mask_land_all !!
+                if (cloudFlags.getSampleBit(x, y, 2)) {   // mask_land_all !!
                     countCloud2++;
                 }
 
@@ -102,7 +102,7 @@ public class ScapeMVisibility implements Constants {
     /**
      * Returns the elevation mean value (in km) over all land pixels in a 30x30km cell
      *
-     * @param hSurfCell - hsurf single values
+     * @param hSurfCell  - hsurf single values
      * @param geoCoding  - geocoding
      * @param classifier - watermask classifier
      * @return hsurf cell mean value
@@ -131,6 +131,25 @@ public class ScapeMVisibility implements Constants {
         }
 
         return hsurfMean / hsurfCount;    // km
+    }
+
+    double[][] getHsurfArrayCell(Rectangle rect,
+                                 GeoCoding geoCoding,
+                                 Tile demTile) throws Exception {
+
+        double[][] hSurf = new double[rect.width][rect.height];
+        for (int y = rect.y; y < rect.y + rect.height; y++) {
+            for (int x = rect.x; x < rect.x + rect.width; x++) {
+                GeoPos geoPos = null;
+                if (geoCoding.canGetGeoPos()) {
+                    double demValue = demTile.getSampleDouble(x, y);
+                    hSurf[x - rect.x][y - rect.y] = 0.001 * demValue;
+                } else {
+                    hSurf[x - rect.x][y - rect.y] = Double.NaN;
+                }
+            }
+        }
+        return hSurf;
     }
 
     double[][] getHsurfArrayCell(Rectangle rect,
@@ -242,19 +261,20 @@ public class ScapeMVisibility implements Constants {
      * <p/>
      * // todo describe parameters
      *
-     * @param toaArrayCell - toa refl single values
-     * @param toaMinCell - toa min cell value
-     * @param vza - vza
-     * @param sza - sza
-     * @param raa - raa
-     * @param hsurfArrayCell - hsurf single values
-     * @param hsurfMeanCell  - hsurf mean cell value
-     * @param cosSzaArrayCell - cosSza singe values
-     * @param cosSzaMeanCell  - cosSza mean cell value
+     * @param targetRect
+     * @param toaArrayCell         - toa refl single values
+     * @param toaMinCell           - toa min cell value
+     * @param vza                  - vza
+     * @param sza                  - sza
+     * @param raa                  - raa
+     * @param hsurfArrayCell       - hsurf single values
+     * @param hsurfMeanCell        - hsurf mean cell value
+     * @param cosSzaArrayCell      - cosSza singe values
+     * @param cosSzaMeanCell       - cosSza mean cell value
      * @param cellIsClear45Percent - true if cell is > 45% clea land
-     * @return  visibility
+     * @return visibility
      */
-    public double getCellVisibility(double[][][] toaArrayCell,
+    public double getCellVisibility(Rectangle targetRect, double[][][] toaArrayCell,
                                     double[] toaMinCell, double vza, double sza, double raa,
                                     double[][] hsurfArrayCell,
                                     double hsurfMeanCell,
@@ -272,7 +292,7 @@ public class ScapeMVisibility implements Constants {
                 vis = Math.max(vis - step[0], visArrayLUT[0]);
             }
             boolean repeat = true;
-            while (((vis + step[i]) < visArrayLUT[i]) && (repeat == true)) {
+            while (((vis + step[i]) < visArrayLUT[visArrayLUT.length - 1]) && (repeat == true)) {
                 vis += step[i];
                 double[][] fInt = LutAccess.interpolAtmParamLut(atmParamLut, vza, sza, raa, hsurfMeanCell, vis, wvInit);
                 repeat = false;
@@ -283,36 +303,47 @@ public class ScapeMVisibility implements Constants {
                 }
             }
         }
+        if (targetRect.x == 30 && targetRect.y == 0) {
+            System.out.println("targetRect = " + targetRect);
+        }
         double visVal = vis - step[1];
 
         if (cellIsClear45Percent) {
             double[][] refPixelsBand0 =
-                    extractRefPixels(0, hsurfArrayCell, hsurfMeanCell, cosSzaArrayCell, cosSzaMeanCell, toaArrayCell);
-            double[][][] refPixels = new double[L1_BAND_NUM][refPixelsBand0.length][refPixelsBand0[0].length];
-            refPixels[0] = refPixelsBand0;
-
-            boolean invalid = false;
-            for (int bandId = 1; bandId < L1_BAND_NUM; bandId++) {
-                refPixels[bandId] =
-                        extractRefPixels(bandId, hsurfArrayCell, hsurfMeanCell, cosSzaArrayCell, cosSzaMeanCell, toaArrayCell);
-                if (refPixels[bandId] == null) {
-                    invalid = true; // we want valid pixels in ALL bands
-                    break;
-                }
+                    extractRefPixels(targetRect, 0, hsurfArrayCell, hsurfMeanCell, cosSzaArrayCell, cosSzaMeanCell, toaArrayCell);
+            if (targetRect.x == 30 && targetRect.y == 0) {
+                System.out.println("targetRect = " + targetRect);
             }
+            if (refPixelsBand0 != null) {
+                double[][][] refPixels = new double[L1_BAND_NUM][refPixelsBand0.length][refPixelsBand0[0].length];
+                refPixels[0] = refPixelsBand0;
 
-            if (!invalid) {
-                InversionMerisAot inversionMerisAot = new InversionMerisAot();
-                inversionMerisAot.setVisVal(visVal);
-                inversionMerisAot.compute(refPixels, vza, sza, raa, hsurfMeanCell, wvInit, cosSzaMeanCell);
-                visVal = inversionMerisAot.getVisVal();
-                double visStdev = inversionMerisAot.getVisStdev();       // not needed? does not seem to be further used in IDL
-                double emCode = inversionMerisAot.getEmCode();           // not needed? does not seem to be further used in IDL
+                boolean invalid = false;
+                for (int bandId = 1; bandId < L1_BAND_NUM; bandId++) {
+                    refPixels[bandId] =
+                            extractRefPixels(targetRect, bandId, hsurfArrayCell, hsurfMeanCell, cosSzaArrayCell, cosSzaMeanCell, toaArrayCell);
+                    if (refPixels[bandId] == null) {
+                        invalid = true; // we want valid pixels in ALL bands
+                        break;
+                    }
+                }
+
+                if (!invalid) {
+                    InversionMerisAot inversionMerisAot = new InversionMerisAot();
+                    inversionMerisAot.setVisVal(visVal);
+                    inversionMerisAot.compute(refPixels, vza, sza, raa, hsurfMeanCell, wvInit, cosSzaMeanCell);
+                    visVal = inversionMerisAot.getVisVal();
+                    double visStdev = inversionMerisAot.getVisStdev();       // not needed? does not seem to be further used in IDL
+                    double emCode = inversionMerisAot.getEmCode();           // not needed? does not seem to be further used in IDL
+                }
             }
         } else {
             // nothing to do - keep visVal as it was before
         }
 
+        if (targetRect.x == 30 && targetRect.y == 0) {
+            System.out.println("targetRect = " + targetRect);
+        }
         return visVal;
     }
 
@@ -321,15 +352,15 @@ public class ScapeMVisibility implements Constants {
      * <p/>
      * // todo describe parameters
      *
-     * @param bandId - band ID
+     * @param bandId          - band ID
      * @param hsurfArrayCell  - hsurf single values
      * @param hsurfMeanCell   - hsurf mean cell value
-     * @param cosSzaArrayCell  - cosSza single values
-     * @param cosSzaMeanCell - cosSza mean cell values
-     * @param toaArrayCell  - toa single values
+     * @param cosSzaArrayCell - cosSza single values
+     * @param cosSzaMeanCell  - cosSza mean cell values
+     * @param toaArrayCell    - toa single values
      * @return double[][] refPixels = double[selectedPixels][NUM_REF_PIXELS]
      */
-    private double[][] extractRefPixels(int bandId, double[][] hsurfArrayCell, double hsurfMeanCell,
+    private double[][] extractRefPixels(Rectangle targetRect, int bandId, double[][] hsurfArrayCell, double hsurfMeanCell,
                                         double[][] cosSzaArrayCell, double cosSzaMeanCell, double[][][] toaArrayCell) {
 
         final int cellWidth = toaArrayCell[0].length;
@@ -342,8 +373,8 @@ public class ScapeMVisibility implements Constants {
         List<CellSample> ndviHighList = new ArrayList<CellSample>();
         List<CellSample> ndviMediumList = new ArrayList<CellSample>();
         List<CellSample> ndviLowList = new ArrayList<CellSample>();
-        for (int i = 0; i < cellWidth; i++) {
-            for (int j = 0; j < cellHeight; j++) {
+        for (int j = 0; j < cellHeight; j++) {
+            for (int i = 0; i < cellWidth; i++) {
                 final double toa7 = toaArrayCell[7][i][j] / ScapeMConstants.solIrr7;
                 final double toa9 = toaArrayCell[9][i][j] / ScapeMConstants.solIrr9;
                 ndvi[i][j] = (toa9 - toa7) / (toa9 + toa7);
@@ -353,6 +384,9 @@ public class ScapeMVisibility implements Constants {
                         ndviHighList.add(new CellSample(i, j, ndvi[i][j]));
                     } else if (ndvi[i][j] >= 0.15 && ndvi[i][j] < 0.4) {
                         ndviMediumList.add(new CellSample(i, j, ndvi[i][j]));
+                        if (targetRect.x == 30 && targetRect.y == 0) {
+                            System.out.println("ndvi medium = " + i + "," + j + "," + ndvi[i][j] + "," + toaArrayCell[bandId][i][j]);
+                        }
                     } else if (ndvi[i][j] >= 0.09 && ndvi[i][j] < 0.15) {
                         ndviLowList.add(new CellSample(i, j, ndvi[i][j]));
                     }
@@ -372,6 +406,9 @@ public class ScapeMVisibility implements Constants {
         final int nLim = Math.min(ndviHighSamples.length / 2, ndviMediumSamples.length / 3);
         double[][] refPixels = new double[nLim][ScapeMConstants.NUM_REF_PIXELS];
 
+        if (targetRect.x == 30 && targetRect.y == 0) {
+            System.out.println("targetRect = " + targetRect);
+        }
         if (ndviMediumSamples.length + 2 >= ScapeMConstants.NUM_REF_PIXELS) {
             //                valid_flg = 1
 

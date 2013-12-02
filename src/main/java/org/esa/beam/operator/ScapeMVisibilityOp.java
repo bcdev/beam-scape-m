@@ -28,6 +28,7 @@ import javax.media.jai.BorderExtender;
 import java.awt.*;
 import java.io.IOException;
 import java.util.Calendar;
+import java.util.GregorianCalendar;
 
 /**
  * Operator for MERIS atmospheric correction with SCAPE-M algorithm: cell visibility retrieval part.
@@ -67,6 +68,12 @@ public class ScapeMVisibilityOp extends MerisBasisOp implements Constants {
     @Override
     public void initialize() throws OperatorException {
         try {
+            // todo: this is only for ONE test product to compare with LG dimap input!! check if start time is null.
+            if (sourceProduct.getStartTime() == null) {
+                sourceProduct.setStartTime(ProductData.UTC.create(new GregorianCalendar(2006, 8, 19).getTime(), 0));
+                sourceProduct.setEndTime(ProductData.UTC.create(new GregorianCalendar(2006, 8, 19).getTime(), 0));
+//                int year = sourceProduct.getName()... // todo continue
+            }
             l2AuxData = L2AuxDataProvider.getInstance().getAuxdata(sourceProduct);
             scapeMVisibility = new ScapeMVisibility(l2AuxData);
         } catch (Exception e) {
@@ -83,7 +90,8 @@ public class ScapeMVisibilityOp extends MerisBasisOp implements Constants {
         if (demDescriptor == null || !demDescriptor.isDemInstalled()) {
             throw new OperatorException("DEM not installed: " + demName + ". Please install with Module Manager.");
         }
-        elevationModel = demDescriptor.createDem(Resampling.NEAREST_NEIGHBOUR);
+        elevationModel = demDescriptor.createDem(Resampling.BILINEAR_INTERPOLATION);
+//        elevationModel = demDescriptor.createDem(Resampling.NEAREST_NEIGHBOUR);
 
         createTargetProduct();
     }
@@ -97,6 +105,12 @@ public class ScapeMVisibilityOp extends MerisBasisOp implements Constants {
         final Tile vzaTile = getSourceTile(sourceProduct.getTiePointGrid(EnvisatConstants.MERIS_VIEW_ZENITH_DS_NAME), targetRect);
         final Tile saaTile = getSourceTile(sourceProduct.getTiePointGrid(EnvisatConstants.MERIS_SUN_AZIMUTH_DS_NAME), targetRect);
         final Tile vaaTile = getSourceTile(sourceProduct.getTiePointGrid(EnvisatConstants.MERIS_VIEW_AZIMUTH_DS_NAME), targetRect);
+
+        Tile demTile = null;
+        Band demBand = sourceProduct.getBand("dem_elevation");
+        if (demBand != null) {
+            demTile = getSourceTile(demBand, targetRect);
+        }
 
         Tile[] radianceTiles = new Tile[L1_BAND_NUM];
         Band[] radianceBands = new Band[L1_BAND_NUM];
@@ -128,7 +142,16 @@ public class ScapeMVisibilityOp extends MerisBasisOp implements Constants {
             final double phi = HelperFunctions.computeAzimuthDifference(vaa, saa);
 
             try {
-                final double[][] hsurfArrayCell = scapeMVisibility.getHsurfArrayCell(targetRect, geoCoding, elevationModel);
+                if (targetRect.x == 30 && targetRect.y == 0) {
+                    System.out.println("targetRect = " + targetRect);
+                }
+                double[][] hsurfArrayCell;
+                if (demTile != null) {
+                    hsurfArrayCell = scapeMVisibility.getHsurfArrayCell(targetRect, geoCoding, demTile);
+                } else {
+                    hsurfArrayCell = scapeMVisibility.getHsurfArrayCell(targetRect, geoCoding, elevationModel);
+                }
+
                 final double hsurfMeanCell = scapeMVisibility.getHsurfMeanCell(hsurfArrayCell, geoCoding, classifier);
 
                 final double[][] cosSzaArrayCell = scapeMVisibility.getCosSzaArrayCell(targetRect, szaTile);
@@ -144,13 +167,13 @@ public class ScapeMVisibilityOp extends MerisBasisOp implements Constants {
                 // now get visibility estimate...
                 final boolean cellIsClear45Percent =
                         scapeMVisibility.isCellClearLand(targetRect, geoCoding, cloudFlagsTile, classifier, 0.45);
-                final double visibility = scapeMVisibility.getCellVisibility(toaArrayCell,
-                                                                       toaMinCell, vza, sza, phi,
-                                                                       hsurfArrayCell,
-                                                                       hsurfMeanCell,
-                                                                       cosSzaArrayCell,
-                                                                       cosSzaMeanCell,
-                                                                       cellIsClear45Percent);
+                final double visibility = scapeMVisibility.getCellVisibility(targetRect, toaArrayCell,
+                                                                             toaMinCell, vza, sza, phi,
+                                                                             hsurfArrayCell,
+                                                                             hsurfMeanCell,
+                                                                             cosSzaArrayCell,
+                                                                             cosSzaMeanCell,
+                                                                             cellIsClear45Percent);
 
                 setCellSample(targetTile, targetRect, visibility);
             } catch (Exception e) {
