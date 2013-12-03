@@ -215,7 +215,7 @@ public class ScapeMVisibility implements Constants {
         double toaMin = Double.MAX_VALUE;
         for (int y = 0; y < toaArrayCell[0].length; y++) {
             for (int x = 0; x < toaArrayCell.length; x++) {
-                if (!(toaArrayCell[x][y] == Double.NaN)) {
+                if (!(Double.isNaN(toaArrayCell[x][y]) && toaArrayCell[x][y] > 0.0)) {
                     if (toaArrayCell[x][y] < toaMin) {
                         toaMin = toaArrayCell[x][y];
                     }
@@ -238,7 +238,7 @@ public class ScapeMVisibility implements Constants {
         for (int y = rect.y; y < rect.y + rect.height; y++) {
             for (int x = rect.x; x < rect.x + rect.width; x++) {
                 GeoPos geoPos = null;
-                if (geoCoding.canGetGeoPos()) {
+                if (geoCoding.canGetGeoPos() && !(Double.isNaN(radianceTile.getSampleDouble(x, y)) && radianceTile.getSampleDouble(x, y) > 0.0)) {
                     geoPos = geoCoding.getGeoPos(new PixelPos(x, y), geoPos);
                     try {
                         if (!classifier.isWater(geoPos.lat, geoPos.lon)) {
@@ -286,6 +286,9 @@ public class ScapeMVisibility implements Constants {
         final double[] step = {1.0, 0.1};
         final double wvInit = 2.0;
 
+        if (targetRect.x == 0 && targetRect.y == 0) {
+//            System.out.println("targetRect = " + targetRect);
+        }
         double vis = visArrayLUT[0] - step[0];
         for (int i = 0; i <= 1; i++) {
             if (i == 1) {
@@ -310,7 +313,7 @@ public class ScapeMVisibility implements Constants {
             double[][] refPixelsBand0 =
                     extractRefPixels(targetRect, 0, hsurfArrayCell, hsurfMeanCell, cosSzaArrayCell, cosSzaMeanCell, toaArrayCell);
             if (targetRect.x == 30 && targetRect.y == 0) {
-                System.out.println("targetRect = " + targetRect);
+//                System.out.println("targetRect = " + targetRect);
             }
             if (refPixelsBand0 != null && refPixelsBand0.length > 0) {
                 double[][][] refPixels = new double[L1_BAND_NUM][refPixelsBand0.length][refPixelsBand0[0].length];
@@ -326,17 +329,17 @@ public class ScapeMVisibility implements Constants {
                     }
                 }
                 if (targetRect.x == 30 && targetRect.y == 0) {
-                    System.out.println("targetRect = " + targetRect);    // OK until this point!
+//                    System.out.println("targetRect = " + targetRect);    // OK until this point!
                 }
 
-                if (!invalid) {
-                    InversionMerisAot inversionMerisAot = new InversionMerisAot();
-                    inversionMerisAot.setVisVal(visVal);
-                    inversionMerisAot.compute(refPixels, vza, sza, raa, hsurfMeanCell, wvInit, cosSzaMeanCell);
-                    visVal = inversionMerisAot.getVisVal();
-                    double visStdev = inversionMerisAot.getVisStdev();       // not needed? does not seem to be further used in IDL
-                    double emCode = inversionMerisAot.getEmCode();           // not needed? does not seem to be further used in IDL
-                }
+//                if (!invalid) {
+//                    InversionMerisAot inversionMerisAot = new InversionMerisAot();
+//                    inversionMerisAot.setVisVal(visVal);
+//                    inversionMerisAot.compute(refPixels, vza, sza, raa, hsurfMeanCell, wvInit, cosSzaMeanCell);
+//                    visVal = inversionMerisAot.getVisVal();
+//                    double visStdev = inversionMerisAot.getVisStdev();       // not needed? does not seem to be further used in IDL
+//                    double emCode = inversionMerisAot.getEmCode();           // not needed? does not seem to be further used in IDL
+//                }
                 if (targetRect.x == 30 && targetRect.y == 0) {
                     System.out.println("targetRect = " + targetRect);
                 }
@@ -388,9 +391,6 @@ public class ScapeMVisibility implements Constants {
                         ndviHighList.add(new CellSample(i, j, ndvi[i][j]));
                     } else if (ndvi[i][j] >= 0.15 && ndvi[i][j] < 0.4) {
                         ndviMediumList.add(new CellSample(i, j, ndvi[i][j]));
-                        if (targetRect.x == 30 && targetRect.y == 0) {
-                            System.out.println("ndvi medium = " + i + "," + j + "," + ndvi[i][j] + "," + toaArrayCell[bandId][i][j]);
-                        }
                     } else if (ndvi[i][j] >= 0.09 && ndvi[i][j] < 0.15) {
                         ndviLowList.add(new CellSample(i, j, ndvi[i][j]));
                     }

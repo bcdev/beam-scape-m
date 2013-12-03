@@ -17,6 +17,7 @@ import org.esa.beam.meris.l2auxdata.L2AuxDataProvider;
 import org.esa.beam.util.BitSetter;
 import org.esa.beam.util.ProductUtils;
 
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -124,7 +125,12 @@ public class ScapeMOp extends MerisBasisOp implements Constants {
         cellVisibilityProduct = GPF.createProduct(OperatorSpi.getOperatorAlias(ScapeMVisibilityOp.class), visParams, cellVisibilityInput);
 
         // fill gaps...
-        gapFilledVisibilityProduct = cellVisibilityProduct; // todo!!
+//        gapFilledVisibilityProduct = cellVisibilityProduct;
+        try {
+            gapFilledVisibilityProduct = ScapeMGapFill.gapFill(cellVisibilityProduct);
+        } catch (IOException e) {
+            throw new OperatorException(e.getMessage(), e);
+        }
 
         // smooth...       // todo
 //        Map<String, Product> smoothInput = new HashMap<String, Product>(4);
@@ -137,7 +143,7 @@ public class ScapeMOp extends MerisBasisOp implements Constants {
 
         // derive reflectance...
 
-         targetProduct = cellVisibilityProduct;
+         targetProduct = gapFilledVisibilityProduct;
     }
 
     private void createTargetProduct() throws OperatorException {

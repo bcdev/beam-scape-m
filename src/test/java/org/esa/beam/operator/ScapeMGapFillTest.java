@@ -3,10 +3,17 @@ package org.esa.beam.operator;
 import org.esa.beam.framework.datamodel.Band;
 import org.esa.beam.framework.datamodel.Product;
 import org.esa.beam.framework.datamodel.ProductData;
+import org.esa.beam.jai.ResolutionLevel;
+import org.esa.beam.jai.SingleBandedOpImage;
 import org.junit.Test;
 
+import javax.media.jai.PlanarImage;
+import java.awt.*;
 import java.awt.image.BufferedImage;
+import java.awt.image.DataBuffer;
+import java.awt.image.WritableRaster;
 import java.io.IOException;
+import java.util.Map;
 
 import static junit.framework.Assert.assertEquals;
 import static junit.framework.Assert.assertNotNull;
@@ -81,8 +88,18 @@ public class ScapeMGapFillTest {
 
     @Test
     public void testScapeMGapFill() throws IOException {
-        final int pixelsPerCell = ScapeMOp.RR_PIXELS_PER_CELL;
-        Product productToBeFilled = createUnFilledDummyRRProduct2(pixelsPerCell);
+        final int pixelsPerCell = 2;
+        Product productToBeFilled = createUnFilledDummyRRProduct(pixelsPerCell, 0);
+        Band unfilledProductBand = productToBeFilled.getBand(ScapeMVisibilityOp.VISIBILITY_BAND_NAME);
+
+        final int origWidth = productToBeFilled.getSceneRasterWidth();
+        final int origHeight = productToBeFilled.getSceneRasterHeight();
+        float[][] origImageData = new float[origWidth][origHeight];
+        for (int y = 0; y < origHeight; y++) {
+            for (int x = 0; x < origWidth; x++) {
+                origImageData[x][y] = unfilledProductBand.getSampleFloat(x, y);
+            }
+        }
 
         Product filledProduct = ScapeMGapFill.gapFill(productToBeFilled);
 
@@ -93,8 +110,9 @@ public class ScapeMGapFillTest {
         assertEquals(productToBeFilled.getSceneRasterHeight(), height);
         final Band filledProductBand = filledProduct.getBand(ScapeMVisibilityOp.VISIBILITY_BAND_NAME);
         assertNotNull(filledProductBand);
+        int cellHeight = filledProduct.getSceneRasterHeight() / pixelsPerCell;
         for (int y = 0; y < height; y++) {
-            double groundValue = 3 * (y / pixelsPerCell);
+            double groundValue = cellHeight * (y / pixelsPerCell);
             for (int x = 0; x < width; x++) {
                 double value = x / pixelsPerCell + groundValue + 1;
                 assertEquals(value, filledProductBand.getSampleFloat(x, y), 1e-8);
@@ -102,32 +120,121 @@ public class ScapeMGapFillTest {
         }
     }
 
-    private Product createUnFilledDummyRRProduct2(int pixelsPerCell) {
-        final int productWidth = pixelsPerCell * 3;
-        final int productHeight = pixelsPerCell * 4;
+    @Test
+    public void testScapeMGapFillWithProductWithUnevenlySizedTiles() throws IOException {
+        final int pixelsPerCell = 2;
+        Product productToBeFilled = createUnFilledDummyRRProduct(pixelsPerCell, 1);
+        Band unfilledProductBand = productToBeFilled.getBand(ScapeMVisibilityOp.VISIBILITY_BAND_NAME);
+
+        final int origWidth = productToBeFilled.getSceneRasterWidth();
+        final int origHeight = productToBeFilled.getSceneRasterHeight();
+        float[][] origImageData = new float[origWidth][origHeight];
+        for (int y = 0; y < origHeight; y++) {
+            for (int x = 0; x < origWidth; x++) {
+                origImageData[x][y] = unfilledProductBand.getSampleFloat(x, y);
+            }
+        }
+
+        Product filledProduct = ScapeMGapFill.gapFill(productToBeFilled);
+
+        assertNotNull(filledProduct);
+        int width = filledProduct.getSceneRasterWidth();
+        assertEquals(origWidth, width);
+        int height = filledProduct.getSceneRasterHeight();
+        assertEquals(origHeight, height);
+        final Band filledProductBand = filledProduct.getBand(ScapeMVisibilityOp.VISIBILITY_BAND_NAME);
+        assertNotNull(filledProductBand);
+
+        for (int y = 0; y < height; y++) {
+            for (int x = 0; x < width; x++) {
+                boolean isCellToBeFilled = (origImageData[x][y] == 1000.0);
+                int cellIndexX = x / pixelsPerCell;
+                int cellIndexY = y / pixelsPerCell;
+                if (isCellToBeFilled) {
+                    if (cellIndexX == 2 && cellIndexY == 1) {    // inside
+                        assertEquals(6.0, filledProductBand.getSampleFloat(x, y), 1e-6);
+                    }
+                    if (cellIndexX == 3 && cellIndexY == 3) {   // right edge
+                        assertEquals(13.8, filledProductBand.getSampleFloat(x, y), 1e-6);
+                    }
+                    if (cellIndexX == 0 && cellIndexY == 4) {   // lower left
+                        assertEquals(15.2, filledProductBand.getSampleFloat(x, y), 1e-6);
+                    }
+                    if (cellIndexX == 3 && cellIndexY == 4) {   // lower right
+                        assertEquals(17.666666, filledProductBand.getSampleFloat(x, y), 1e-7);
+                    }
+                } else {
+                    assertEquals(origImageData[x][y], filledProductBand.getSampleFloat(x, y), 1e-8);
+                }
+            }
+        }
+    }
+
+    private Product createUnFilledDummyRRProduct(int pixelsPerCell, int offset) throws IOException {
+        final int productWidth = pixelsPerCell * 3 + offset;
+        final int productHeight = pixelsPerCell * 4 + offset;
         Product product = new Product("dummyRRProduct", "doesntMatter", productWidth, productHeight);
         product.setPreferredTileSize(pixelsPerCell, pixelsPerCell);
         final String bandName = ScapeMVisibilityOp.VISIBILITY_BAND_NAME;
-        final Band band = new Band(bandName, ProductData.TYPE_INT32, productWidth, productHeight);
-        band.setSourceImage(createSourceImage(pixelsPerCell, productWidth, productHeight));
+        final Band band = new Band(bandName, ProductData.TYPE_FLOAT32, productWidth, productHeight);
         band.setNoDataValue(1000.0);
         product.addBand(band);
+        ScapeMImage image = new ScapeMImage(DataBuffer.TYPE_FLOAT, productWidth, productHeight, new Dimension(pixelsPerCell, pixelsPerCell),
+                                            null, ResolutionLevel.MAXRES);
+        band.setSourceImage(image);
         return product;
     }
 
-    private static BufferedImage createSourceImage(int pixelsPerCell, int srcW, int srcH) {
-        BufferedImage sourceImage = new BufferedImage(srcW, srcH, BufferedImage.TYPE_USHORT_GRAY);
-        for (int y = 0; y < srcH; y++) {
-            double groundValue = 3 * (y / pixelsPerCell);
-            for (int x = 0; x < srcW; x++) {
-                double value = x / pixelsPerCell + groundValue + 1;
-                if (value == 5.0) {
-                    value = 1000.0;
-                }
-                sourceImage.getRaster().setSample(x, y, 0, value);
-            }
+
+    private class ScapeMImage extends SingleBandedOpImage {
+        private final int cellHeight;
+        private final int tileHeight;
+        private final int tileWidth;
+
+        /**
+         * Used to construct an image.
+         *
+         * @param dataBufferType The data type.
+         * @param sourceWidth    The width of the level 0 image.
+         * @param sourceHeight   The height of the level 0 image.
+         * @param tileSize       The tile size for this image.
+         * @param configuration  The configuration map (can be null).
+         * @param level          The resolution level.
+         */
+        protected ScapeMImage(int dataBufferType, int sourceWidth, int sourceHeight, Dimension tileSize, Map configuration, ResolutionLevel level) {
+            super(dataBufferType, sourceWidth, sourceHeight, tileSize, configuration, level);
+            tileHeight = tileSize.height;
+            tileWidth = tileSize.width;
+            cellHeight = sourceHeight / tileHeight;
         }
-        return sourceImage;
+
+        @Override
+        protected void computeRect(PlanarImage[] sources, WritableRaster dest, Rectangle destRect) {
+            float[] elems = new float[destRect.width * destRect.height];
+            int index = 0;
+            for (int y = destRect.y; y < destRect.height + destRect.y; y++) {
+                float groundValue = cellHeight * (y / tileHeight);
+                float value = 0;
+                for (int x = destRect.x; x < destRect.width + destRect.x; x++) {
+                    value = x / tileWidth + groundValue + 1;
+                    if (value == 6.0) {       // hole inside
+                        value = 1000f;
+                    }
+                    if (value == 16.0) {     // hole at right edge
+                        value = 1000f;
+                    }
+                    if (value == 17.0) {     // hole at lower left corner
+                        value = 1000f;
+                    }
+                    if (value == 20.0) {    // hole at lower right corner
+                        value = 1000f;
+                    }
+                    elems[index++] = value;
+                }
+            }
+            dest.setDataElements(destRect.x, destRect.y, destRect.width, destRect.height, elems);
+
+        }
     }
 
 

@@ -105,7 +105,7 @@ public class ScapeMVisibilityOp extends MerisBasisOp implements Constants {
     public void computeTile(Band targetBand, Tile targetTile, ProgressMonitor pm) throws OperatorException {
 
         final Rectangle targetRect = targetTile.getRectangle();
-        if (targetRect.x == 30 && targetRect.y == 0) {
+        if (targetRect.x == 0 && targetRect.y == 0) {
             System.out.println("targetRect = " + targetRect);
         }
 
@@ -182,6 +182,9 @@ public class ScapeMVisibilityOp extends MerisBasisOp implements Constants {
                         cosSzaArrayCell,
                         cosSzaMeanCell,
                         cellIsClear45Percent);
+                if (targetRect.x == 0 && targetRect.y == 0) {
+                    System.out.println("targetRect = " + targetRect);
+                }
 
                 setCellSample(targetTile, targetRect, visibility);
             } catch (Exception e) {
@@ -209,7 +212,7 @@ public class ScapeMVisibilityOp extends MerisBasisOp implements Constants {
         ProductUtils.copyMasks(sourceProduct, targetProduct);
 
         Band visibilityBand = targetProduct.addBand(VISIBILITY_BAND_NAME, ProductData.TYPE_FLOAT32);
-        visibilityBand.setNoDataValue(-1.0);   // todo: check
+        visibilityBand.setNoDataValue(0.0);
         visibilityBand.setNoDataValueUsed(true);
 
         if (sourceProduct.getProductType().contains("_RR")) {

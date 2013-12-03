@@ -1,11 +1,16 @@
 package org.esa.beam.operator;
 
-import com.bc.ceres.glevel.MultiLevelImage;
 import org.esa.beam.framework.datamodel.Band;
 import org.esa.beam.framework.datamodel.Product;
+import org.esa.beam.jai.ResolutionLevel;
+import org.esa.beam.jai.SingleBandedOpImage;
 
-import java.awt.image.BufferedImage;
+import javax.media.jai.PlanarImage;
+import java.awt.*;
+import java.awt.image.DataBuffer;
+import java.awt.image.WritableRaster;
 import java.io.IOException;
+import java.util.Map;
 
 public class ScapeMGapFill {
 
@@ -68,18 +73,21 @@ public class ScapeMGapFill {
     public static Product gapFill(Product product) throws IOException {
         final Band visibilityBand = product.getBand(ScapeMVisibilityOp.VISIBILITY_BAND_NAME);
         final double noDataValue = visibilityBand.getNoDataValue();
-        final MultiLevelImage visibilityImage = visibilityBand.getSourceImage();
         final int tileWidth = (int) product.getPreferredTileSize().getWidth();
         final int tileHeight = (int) product.getPreferredTileSize().getHeight();
-        final int numberOfCellColumns = product.getSceneRasterWidth() / tileWidth;
-        final int numberOfCellRows = product.getSceneRasterHeight() / tileHeight;
+        final int numberOfCellColumns = (int) Math.ceil(product.getSceneRasterWidth() * 1.0 / tileWidth);
+        final int numberOfCellRows = (int) Math.ceil(product.getSceneRasterHeight() * 1.0 / tileHeight);
         float[][] cellSamples = new float[numberOfCellColumns][numberOfCellRows];
         float areaMean = 0;
         int numberOfValidCells = 0;
         for (int y = 0; y < numberOfCellRows; y++) {
             for (int x = 0; x < numberOfCellColumns; x++) {
                 final float cellValue = visibilityBand.getSampleFloat(x * tileWidth, y * tileHeight);
-                cellSamples[x][y] = cellValue;
+                if (Double.isNaN(cellValue)) {
+                    cellSamples[x][y] = (float) noDataValue;
+                } else {
+                    cellSamples[x][y] = cellValue;
+                }
                 if (cellValue != noDataValue) {
                     areaMean += cellValue;
                     numberOfValidCells++;
@@ -115,26 +123,52 @@ public class ScapeMGapFill {
                 }
             }
         }
-        final BufferedImage newSourceImage = getUpdatedSourceImage(tileWidth, tileHeight, updatedCellValues);
-        visibilityBand.setSourceImage(newSourceImage);
+        ScapeMImage image = new ScapeMImage(DataBuffer.TYPE_FLOAT, product.getSceneRasterWidth(), product.getSceneRasterHeight(),
+                                                  new Dimension(tileWidth, tileHeight), null, ResolutionLevel.MAXRES,
+                                                  updatedCellValues);
+        visibilityBand.setSourceImage(image);
         return product;
     }
 
-    private static BufferedImage getUpdatedSourceImage(int tileWidth, int tileHeight, float[][] updatedCellValues) {
-        final int productWidth = tileWidth * updatedCellValues.length;
-        final int productHeight = tileHeight * updatedCellValues[0].length;
-        BufferedImage sourceImage = new BufferedImage(productWidth, productHeight, BufferedImage.TYPE_USHORT_GRAY);
-        for (int y = 0; y < updatedCellValues[0].length; y++) {
-            for (int x = 0; x < updatedCellValues.length; x++) {
-                for (int i = 0; i < tileHeight; i++) {
-                    for (int j = 0; j < tileWidth; j++) {
-                        sourceImage.getRaster().setSample(x * tileWidth + j,
-                                                          y * tileWidth + i, 0, updatedCellValues[x][y]);
-                    }
+
+    private static class ScapeMImage extends SingleBandedOpImage {
+        private final int tileHeight;
+        private final int tileWidth;
+        private final float[][] updatedCellValues;
+
+        /**
+         * Used to construct an image.
+         *
+         * @param dataBufferType The data type.
+         * @param sourceWidth    The width of the level 0 image.
+         * @param sourceHeight   The height of the level 0 image.
+         * @param tileSize       The tile size for this image.
+         * @param configuration  The configuration map (can be null).
+         * @param level          The resolution level.
+         */
+        protected ScapeMImage(int dataBufferType, int sourceWidth, int sourceHeight, Dimension tileSize,
+                              Map configuration, ResolutionLevel level, float[][] updatedCellValues) {
+            super(dataBufferType, sourceWidth, sourceHeight, tileSize, configuration, level);
+            tileHeight = tileSize.height;
+            tileWidth = tileSize.width;
+            this.updatedCellValues = updatedCellValues;
+        }
+
+        @Override
+        protected void computeRect(PlanarImage[] sources, WritableRaster dest, Rectangle destRect) {
+            float[] elems = new float[destRect.width * destRect.height];
+            int index = 0;
+            for (int y = destRect.y; y < destRect.height + destRect.y; y++) {
+                int yCellIndex = y / tileHeight;
+                for (int x = destRect.x; x < destRect.width + destRect.x; x++) {
+                    int xCellIndex = x / tileWidth;
+                    float value = updatedCellValues[xCellIndex][yCellIndex];
+                    elems[index++] = value;
                 }
             }
+            dest.setDataElements(destRect.x, destRect.y, destRect.width, destRect.height, elems);
+
         }
-        return sourceImage;
     }
 
 }
