@@ -123,7 +123,7 @@ public class ScapeMGapFill {
                 }
             }
         }
-        ScapeMImage image = new ScapeMImage(DataBuffer.TYPE_FLOAT, product.getSceneRasterWidth(), product.getSceneRasterHeight(),
+        ScapeMGapFilledImage image = new ScapeMGapFilledImage(DataBuffer.TYPE_FLOAT, product.getSceneRasterWidth(), product.getSceneRasterHeight(),
                                                   new Dimension(tileWidth, tileHeight), null, ResolutionLevel.MAXRES,
                                                   updatedCellValues);
         visibilityBand.setSourceImage(image);
@@ -131,7 +131,7 @@ public class ScapeMGapFill {
     }
 
 
-    private static class ScapeMImage extends SingleBandedOpImage {
+    private static class ScapeMGapFilledImage extends SingleBandedOpImage {
         private final int tileHeight;
         private final int tileWidth;
         private final float[][] updatedCellValues;
@@ -146,8 +146,8 @@ public class ScapeMGapFill {
          * @param configuration  The configuration map (can be null).
          * @param level          The resolution level.
          */
-        protected ScapeMImage(int dataBufferType, int sourceWidth, int sourceHeight, Dimension tileSize,
-                              Map configuration, ResolutionLevel level, float[][] updatedCellValues) {
+        protected ScapeMGapFilledImage(int dataBufferType, int sourceWidth, int sourceHeight, Dimension tileSize,
+                                       Map configuration, ResolutionLevel level, float[][] updatedCellValues) {
             super(dataBufferType, sourceWidth, sourceHeight, tileSize, configuration, level);
             tileHeight = tileSize.height;
             tileWidth = tileSize.width;

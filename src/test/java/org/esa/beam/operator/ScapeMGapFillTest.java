@@ -9,7 +9,6 @@ import org.junit.Test;
 
 import javax.media.jai.PlanarImage;
 import java.awt.*;
-import java.awt.image.BufferedImage;
 import java.awt.image.DataBuffer;
 import java.awt.image.WritableRaster;
 import java.io.IOException;
@@ -179,14 +178,14 @@ public class ScapeMGapFillTest {
         final Band band = new Band(bandName, ProductData.TYPE_FLOAT32, productWidth, productHeight);
         band.setNoDataValue(1000.0);
         product.addBand(band);
-        ScapeMImage image = new ScapeMImage(DataBuffer.TYPE_FLOAT, productWidth, productHeight, new Dimension(pixelsPerCell, pixelsPerCell),
+        ScapeMGapFilledTestImage image = new ScapeMGapFilledTestImage(DataBuffer.TYPE_FLOAT, productWidth, productHeight, new Dimension(pixelsPerCell, pixelsPerCell),
                                             null, ResolutionLevel.MAXRES);
         band.setSourceImage(image);
         return product;
     }
 
 
-    private class ScapeMImage extends SingleBandedOpImage {
+    private class ScapeMGapFilledTestImage extends SingleBandedOpImage {
         private final int cellHeight;
         private final int tileHeight;
         private final int tileWidth;
@@ -201,7 +200,7 @@ public class ScapeMGapFillTest {
          * @param configuration  The configuration map (can be null).
          * @param level          The resolution level.
          */
-        protected ScapeMImage(int dataBufferType, int sourceWidth, int sourceHeight, Dimension tileSize, Map configuration, ResolutionLevel level) {
+        protected ScapeMGapFilledTestImage(int dataBufferType, int sourceWidth, int sourceHeight, Dimension tileSize, Map configuration, ResolutionLevel level) {
             super(dataBufferType, sourceWidth, sourceHeight, tileSize, configuration, level);
             tileHeight = tileSize.height;
             tileWidth = tileSize.width;
