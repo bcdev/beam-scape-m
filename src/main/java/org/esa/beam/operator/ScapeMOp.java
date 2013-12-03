@@ -133,6 +133,7 @@ public class ScapeMOp extends MerisBasisOp implements Constants {
         }
 
         // smooth...       // todo
+        smoothedVisibilityProduct = gapFilledVisibilityProduct;
 //        Map<String, Product> smoothInput = new HashMap<String, Product>(4);
 //        smoothInput.put("source", gapFilledVisibilityProduct);
 //        smoothedVisibilityProduct = GPF.createProduct(OperatorSpi.getOperatorAlias(ScapeMSmoothOp.class), GPF.NO_PARAMS, smoothInput);
@@ -143,7 +144,7 @@ public class ScapeMOp extends MerisBasisOp implements Constants {
 
         // derive reflectance...
 
-         targetProduct = gapFilledVisibilityProduct;
+         targetProduct = smoothedVisibilityProduct;
     }
 
     private void createTargetProduct() throws OperatorException {

@@ -53,6 +53,10 @@ public class ScapeMSmoothOp extends MerisBasisOp implements Constants {
     @TargetProduct
     private Product targetProduct;
 
+
+    @Parameter(description = "JAI Convolve kernel size", defaultValue = "30")
+    private int kernelSize;
+
     @Override
     public void initialize() throws OperatorException {
 
@@ -72,17 +76,11 @@ public class ScapeMSmoothOp extends MerisBasisOp implements Constants {
         ProductUtils.copyFlagBands(sourceProduct, targetProduct, true);
         ProductUtils.copyMasks(sourceProduct, targetProduct);
 
-        KernelJAI kernel1 = KernelJAI.GRADIENT_MASK_SOBEL_HORIZONTAL; // todo: check what kind of kernel we need!
-        float[] kernelData = new float[]{
-                0.0f, 1.0f, 0.0f,
-                1.0f, 1.0f, 1.0f,
-                0.0f, 1.0f, 0.0f
-        };
-        KernelJAI kernel2 = new KernelJAI(3, 3, kernelData);
+        KernelJAI kernel = createConvolveKernel();
 
         Band b = sourceProduct.getBand(ScapeMVisibilityOp.VISIBILITY_BAND_NAME);
         RenderedImage sourceImage = b.getSourceImage();
-        RenderedOp targetImage = JAI.create("convolve", sourceImage, kernel2);
+        RenderedOp targetImage = JAI.create("convolve", sourceImage, kernel);
 
         // todo: maybe the source product will later be on 'cell grid' (1 value per cell), then we will need
         // something like this instead:
@@ -93,10 +91,17 @@ public class ScapeMSmoothOp extends MerisBasisOp implements Constants {
 //                                                              Interpolation.getInstance(
 //                                                                      Interpolation.INTERP_BICUBIC), null);
 
-        Band targetBand = ProductUtils.copyBand(sourceProduct.getName(), sourceProduct, targetProduct, false);
+        Band targetBand = ProductUtils.copyBand(ScapeMVisibilityOp.VISIBILITY_BAND_NAME, sourceProduct, targetProduct, false);
         targetBand.setSourceImage(targetImage);
     }
 
+    private KernelJAI createConvolveKernel() {
+        float[] kernelMatrix = new float[kernelSize*kernelSize];
+        for(int k=0;k<kernelMatrix.length;k++) {
+            kernelMatrix[k] = 1.0f/(kernelSize*kernelSize);
+        }
+        return new KernelJAI(kernelSize, kernelSize, kernelMatrix);
+    }
 
     public static class Spi extends OperatorSpi {
 
