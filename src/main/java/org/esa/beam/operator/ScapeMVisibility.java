@@ -64,67 +64,42 @@ public class ScapeMVisibility implements Constants {
      * // todo describe parameters
      *
      * @param rect       - cell rectangle
-     * @param geoCoding  - geocoding
      * @param cloudFlags - cloud flags
-     * @param classifier - watermask classifier
      * @return boolean
      */
     boolean isCellClearLand(Rectangle rect,
-                            GeoCoding geoCoding,
                             Tile cloudFlags,
-                            WatermaskClassifier classifier,
                             double percentage) {
-        int countWater = 0;
-        int countCloud2 = 0;
+        int countClearLand = 0;
         for (int y = rect.y; y < rect.y + rect.height; y++) {
             for (int x = rect.x; x < rect.x + rect.width; x++) {
-                if (cloudFlags.getSampleBit(x, y, 2)) {   // mask_land_all !!
-                    countCloud2++;
+                if (cloudFlags.getSampleBit(x, y, 4)) {   // mask_land_all !!
+                    countClearLand++;
                 }
-
-                GeoPos geoPos = null;
-                if (geoCoding.canGetGeoPos()) {
-                    geoPos = geoCoding.getGeoPos(new PixelPos(x, y), geoPos);
-                    try {
-                        if (classifier.isWater(geoPos.lat, geoPos.lon) &&
-                                !cloudFlags.getSampleBit(x, y, 2)) {  // todo: check which is the lakes bit
-                            countWater++;
-                        }
-                    } catch (IOException ignore) {
-                    }
-                }
-
             }
         }
-        return (countCloud2 + countWater) / (rect.getWidth() * rect.getHeight()) <= (1.0 - percentage);
+        return countClearLand / (rect.getWidth() * rect.getHeight()) > percentage;
     }
 
     /**
      * Returns the elevation mean value (in km) over all land pixels in a 30x30km cell
      *
-     * @param hSurfCell  - hsurf single values
-     * @param geoCoding  - geocoding
-     * @param classifier - watermask classifier
+     * @param hSurfCell - hsurf single values
      * @return hsurf cell mean value
      * @throws Exception
      */
     double getHsurfMeanCell(double[][] hSurfCell,
-                            GeoCoding geoCoding,
-                            WatermaskClassifier classifier) throws Exception {
+                            Tile cloudFlags) throws Exception {
 
         double hsurfMean = 0.0;
         int hsurfCount = 0;
+        Rectangle rect = cloudFlags.getRectangle();
         for (int y = 0; y < hSurfCell[0].length; y++) {
             for (int x = 0; x < hSurfCell.length; x++) {
-                GeoPos geoPos = null;
-                if (geoCoding.canGetGeoPos()) {
-                    geoPos = geoCoding.getGeoPos(new PixelPos(x, y), geoPos);
-                    try {
-                        if (!classifier.isWater(geoPos.lat, geoPos.lon)) {
-                            hsurfMean += hSurfCell[x][y];
-                            hsurfCount++;
-                        }
-                    } catch (IOException ignore) {
+                if (!(Double.isNaN(hSurfCell[x][y]))) {
+                    if (cloudFlags.getSampleBit(rect.x + x, rect.y + y, 4)) {   // mask_land_all !!
+                        hsurfMean += hSurfCell[x][y];
+                        hsurfCount++;
                     }
                 }
             }
@@ -140,12 +115,11 @@ public class ScapeMVisibility implements Constants {
         double[][] hSurf = new double[rect.width][rect.height];
         for (int y = rect.y; y < rect.y + rect.height; y++) {
             for (int x = rect.x; x < rect.x + rect.width; x++) {
-                GeoPos geoPos = null;
                 if (geoCoding.canGetGeoPos()) {
                     double demValue = demTile.getSampleDouble(x, y);
-                    hSurf[x - rect.x][y - rect.y] = 0.001 * demValue;
+                    hSurf[x - rect.x][y - rect.y] = Math.max(hsfMin, 0.001 * demValue);
                 } else {
-                    hSurf[x - rect.x][y - rect.y] = Double.NaN;
+                    hSurf[x - rect.x][y - rect.y] = hsfMin;
                 }
             }
         }
@@ -162,9 +136,9 @@ public class ScapeMVisibility implements Constants {
                 GeoPos geoPos = null;
                 if (geoCoding.canGetGeoPos()) {
                     geoPos = geoCoding.getGeoPos(new PixelPos(x, y), geoPos);
-                    hSurf[x - rect.x][y - rect.y] = 0.001 * elevationModel.getElevation(geoPos);
+                    hSurf[x - rect.x][y - rect.y] = Math.max(hsfMin, 0.001 * elevationModel.getElevation(geoPos));
                 } else {
-                    hSurf[x - rect.x][y - rect.y] = Double.NaN;
+                    hSurf[x - rect.x][y - rect.y] = hsfMin;
                 }
             }
         }
@@ -173,22 +147,17 @@ public class ScapeMVisibility implements Constants {
 
 
     double getCosSzaMeanCell(double[][] cosSzaCell,
-                             GeoCoding geoCoding,
-                             WatermaskClassifier classifier) throws Exception {
+                             Tile cloudFlags) throws Exception {
 
         double cosSzaMean = 0.0;
         int cosSzaCount = 0;
+        Rectangle rect = cloudFlags.getRectangle();
         for (int y = 0; y < cosSzaCell[0].length; y++) {
             for (int x = 0; x < cosSzaCell.length; x++) {
-                GeoPos geoPos = null;
-                if (!(cosSzaCell[x][y] == Double.NaN)) {
-                    geoPos = geoCoding.getGeoPos(new PixelPos(x, y), geoPos);
-                    try {
-                        if (!classifier.isWater(geoPos.lat, geoPos.lon)) {
-                            cosSzaMean += cosSzaCell[x][y];
-                            cosSzaCount++;
-                        }
-                    } catch (IOException ignore) {
+                if (!(Double.isNaN(cosSzaCell[x][y]))) {
+                    if (cloudFlags.getSampleBit(rect.x + x, rect.y + y, 4)) {   // mask_land_all !!
+                        cosSzaMean += cosSzaCell[x][y];
+                        cosSzaCount++;
                     }
                 }
             }
@@ -215,7 +184,7 @@ public class ScapeMVisibility implements Constants {
         double toaMin = Double.MAX_VALUE;
         for (int y = 0; y < toaArrayCell[0].length; y++) {
             for (int x = 0; x < toaArrayCell.length; x++) {
-                if (!(Double.isNaN(toaArrayCell[x][y]) && toaArrayCell[x][y] > 0.0)) {
+                if (!(Double.isNaN(toaArrayCell[x][y])) && toaArrayCell[x][y] > 0.0) {
                     if (toaArrayCell[x][y] < toaMin) {
                         toaMin = toaArrayCell[x][y];
                     }
@@ -227,9 +196,7 @@ public class ScapeMVisibility implements Constants {
 
     double[][] getToaArrayCell(Tile radianceTile,
                                Rectangle rect,
-                               GeoCoding geoCoding,
-                               int doy,
-                               WatermaskClassifier classifier) throws Exception {
+                               int doy) throws Exception {
 
         double[][] toa = new double[rect.width][rect.height];
         double varSol = Varsol.getVarSol(doy);
@@ -237,20 +204,26 @@ public class ScapeMVisibility implements Constants {
 
         for (int y = rect.y; y < rect.y + rect.height; y++) {
             for (int x = rect.x; x < rect.x + rect.width; x++) {
-                GeoPos geoPos = null;
-                if (geoCoding.canGetGeoPos() && !(Double.isNaN(radianceTile.getSampleDouble(x, y)) && radianceTile.getSampleDouble(x, y) > 0.0)) {
-                    geoPos = geoCoding.getGeoPos(new PixelPos(x, y), geoPos);
-                    try {
-                        if (!classifier.isWater(geoPos.lat, geoPos.lon)) {
-                            toa[x - rect.x][y - rect.y] = radianceTile.getSampleDouble(x, y) * solFactor;
-                        } else {
-                            toa[x - rect.x][y - rect.y] = Double.NaN;
-                        }
-                    } catch (IOException ignore) {
-                    }
-                } else {
-                    toa[x - rect.x][y - rect.y] = Double.NaN;
-                }
+                toa[x - rect.x][y - rect.y] = radianceTile.getSampleDouble(x, y) * solFactor;
+
+//                GeoPos geoPos = null;
+//                if (geoCoding.canGetGeoPos() && !(Double.isNaN(radianceTile.getSampleDouble(x, y)) && radianceTile.getSampleDouble(x, y) > 0.0)) {
+//                    geoPos = geoCoding.getGeoPos(new PixelPos(x, y), geoPos);
+//                    try {
+//                        if (!classifier.isWater(geoPos.lat, geoPos.lon)) {
+//                            toa[x - rect.x][y - rect.y] = radianceTile.getSampleDouble(x, y) * solFactor;
+//                        } else {
+//                            toa[x - rect.x][y - rect.y] = radianceTile.getSampleDouble(x, y) * solFactor;
+////                            toa[x - rect.x][y - rect.y] = Double.NaN;   // todo: IDL does not do this,
+////                            but we think it is stragne to use water pixels e.g. for minimum detection
+////                            which is used for the land retrievals
+//                        }
+//                    } catch (IOException ignore) {
+//                    }
+//                } else {
+//                    toa[x - rect.x][y - rect.y] = radianceTile.getSampleDouble(x, y) * solFactor;
+////                    toa[x - rect.x][y - rect.y] = Double.NaN;      // todo see above
+//                }
             }
         }
         return toa;
@@ -286,16 +259,16 @@ public class ScapeMVisibility implements Constants {
         final double[] step = {1.0, 0.1};
         final double wvInit = 2.0;
 
-        if (targetRect.x == 0 && targetRect.y == 0) {
-//            System.out.println("targetRect = " + targetRect);
+        if (targetRect.x == 540 && targetRect.y == 60) {
+            System.out.println("targetRect = " + targetRect);
         }
-        double vis = visArrayLUT[0] - step[0];
+        double vis = visMin - step[0];
         for (int i = 0; i <= 1; i++) {
             if (i == 1) {
-                vis = Math.max(vis - step[0], visArrayLUT[0]);
+                vis = Math.max(vis - step[0], visMin);
             }
             boolean repeat = true;
-            while (((vis + step[i]) < visArrayLUT[visArrayLUT.length - 1]) && (repeat == true)) {
+            while (((vis + step[i]) < visMax) && (repeat == true)) {
                 vis += step[i];
                 double[][] fInt = LutAccess.interpolAtmParamLut(atmParamLut, vza, sza, raa, hsurfMeanCell, vis, wvInit);
                 repeat = false;
@@ -451,28 +424,28 @@ public class ScapeMVisibility implements Constants {
         }
 
         final double[] vzaArray = atmParamLut.getDimension(0).getSequence();
-        vzaMin = vzaArray[0];
-        vzaMax = vzaArray[vzaArray.length - 1];
+        vzaMin = vzaArray[0] + 0.001;
+        vzaMax = vzaArray[vzaArray.length - 1] - 0.001;
 
         final double[] szaArray = atmParamLut.getDimension(1).getSequence();
-        szaMin = szaArray[0];
-        szaMax = szaArray[szaArray.length - 1];
+        szaMin = szaArray[0] + 0.001;
+        szaMax = szaArray[szaArray.length - 1] - 0.001;
 
         final double[] raaArray = atmParamLut.getDimension(2).getSequence();
         raaMin = raaArray[0];
         raaMax = raaArray[raaArray.length - 1];
 
         final double[] hsfArray = atmParamLut.getDimension(3).getSequence();
-        hsfMin = hsfArray[0];
-        hsfMax = hsfArray[hsfArray.length - 1];
+        hsfMin = hsfArray[0] + 0.001;
+        hsfMax = hsfArray[hsfArray.length - 1] - 0.001;
 
         visArrayLUT = atmParamLut.getDimension(4).getSequence();
-        visMin = visArrayLUT[0];
-        visMax = visArrayLUT[visArrayLUT.length - 1];
+        visMin = visArrayLUT[0] + 0.001;
+        visMax = visArrayLUT[visArrayLUT.length - 1] - 0.001;
 
         final double[] cwvArray = atmParamLut.getDimension(5).getSequence();
-        cwvMin = cwvArray[0];
-        cwvMax = cwvArray[cwvArray.length - 1];
+        cwvMin = cwvArray[0] + 0.001;
+        cwvMax = cwvArray[cwvArray.length - 1] - 0.001;
     }
 
 
@@ -505,7 +478,8 @@ public class ScapeMVisibility implements Constants {
             double[][] sab = new double[L1_BAND_NUM][visArrayLUT.length];
 
             for (int i = 0; i < visArrayLUT.length; i++) {
-                double[][] fInt = LutAccess.interpolAtmParamLut(atmParamLut, vza, sza, raa, hsurfMeanCell, visArrayLUT[i], wvInit);
+                double visArrayVal = Math.max(visMin, Math.min(visMax, visArrayLUT[i]));
+                double[][] fInt = LutAccess.interpolAtmParamLut(atmParamLut, vza, sza, raa, hsurfMeanCell, visArrayVal, wvInit);
                 for (int bandId = 0; bandId < L1_BAND_NUM; bandId++) {
                     lpw[bandId][i] = fInt[bandId][0];
                     etw[bandId][i] = fInt[bandId][1] * cosSzaMeanCell + fInt[bandId][2];
@@ -553,9 +527,9 @@ public class ScapeMVisibility implements Constants {
                     // PowellTestFunction_1 function1 = new PowellTestFunction_1();
                     // double fmin = Powell.fmin(xVector, xi, ftol, function1);
                     double fmin = Powell.fmin(xVector,
-                            xiInput,
-                            ScapeMConstants.POWELL_FTOL,
-                            toaMinimization);
+                                              xiInput,
+                                              ScapeMConstants.POWELL_FTOL,
+                                              toaMinimization);
                     double[] chiSqr = toaMinimization.getChiSquare();
                     double chiSqrMean = ScapeMUtils.getMeanDouble1D(chiSqr);
 
@@ -573,9 +547,9 @@ public class ScapeMVisibility implements Constants {
                                 toaMinimization.setEmVegIndex(j);
                                 toaMinimization.setRhoVeg(ScapeMConstants.RHO_VEG_ALL[j]);
                                 fmin = Powell.fmin(xVector,
-                                        xiInput,
-                                        ScapeMConstants.POWELL_FTOL,
-                                        toaMinimization);
+                                                   xiInput,
+                                                   ScapeMConstants.POWELL_FTOL,
+                                                   toaMinimization);
                             }
                         }
                     }

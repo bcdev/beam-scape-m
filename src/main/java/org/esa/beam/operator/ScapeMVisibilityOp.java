@@ -63,9 +63,6 @@ public class ScapeMVisibilityOp extends MerisBasisOp implements Constants {
 
     protected L2AuxData l2AuxData;
 
-    private WatermaskClassifier classifier;
-    private static int WATERMASK_RESOLUTION_DEFAULT = 50;
-
     private ElevationModel elevationModel;
 
     @Override
@@ -75,20 +72,12 @@ public class ScapeMVisibilityOp extends MerisBasisOp implements Constants {
             if (sourceProduct.getStartTime() == null) {
                 sourceProduct.setStartTime(ProductData.UTC.parse("20060819", "yyyyMMdd"));
                 sourceProduct.setEndTime(ProductData.UTC.parse("20060819", "yyyyMMdd"));
-//                sourceProduct.setStartTime(ProductData.UTC.create(new GregorianCalendar(2006, 8, 19).getTime(), 0));
-//                sourceProduct.setEndTime(ProductData.UTC.create(new GregorianCalendar(2006, 8, 19).getTime(), 0));
 //                int year = sourceProduct.getName()... // todo continue
             }
             l2AuxData = L2AuxDataProvider.getInstance().getAuxdata(sourceProduct);
             scapeMVisibility = new ScapeMVisibility(l2AuxData);
         } catch (Exception e) {
             throw new OperatorException("could not load L2Auxdata", e);
-        }
-
-        try {
-            classifier = new WatermaskClassifier(WATERMASK_RESOLUTION_DEFAULT);
-        } catch (IOException e) {
-            getLogger().warning("Watermask classifier could not be initialized - fallback mode is used.");
         }
 
         final ElevationModelDescriptor demDescriptor = ElevationModelRegistry.getInstance().getDescriptor(demName);
@@ -105,7 +94,7 @@ public class ScapeMVisibilityOp extends MerisBasisOp implements Constants {
     public void computeTile(Band targetBand, Tile targetTile, ProgressMonitor pm) throws OperatorException {
 
         final Rectangle targetRect = targetTile.getRectangle();
-        if (targetRect.x == 0 && targetRect.y == 0) {
+        if (targetRect.x == 1080 && targetRect.y == 0) {
             System.out.println("targetRect = " + targetRect);
         }
 
@@ -135,8 +124,11 @@ public class ScapeMVisibilityOp extends MerisBasisOp implements Constants {
                 BorderExtender.createInstance(BorderExtender.BORDER_COPY));
 
         final boolean cellIsClear35Percent =
-                scapeMVisibility.isCellClearLand(targetRect, geoCoding, cloudFlagsTile, classifier, 0.35);
+                scapeMVisibility.isCellClearLand(targetRect, cloudFlagsTile, 0.35);
 
+        if (targetRect.x == 30 && targetRect.y == 270) {
+            System.out.println("targetRect = " + targetRect);
+        }
         if (cellIsClear35Percent) {
             // compute visibility...
 
@@ -160,21 +152,24 @@ public class ScapeMVisibilityOp extends MerisBasisOp implements Constants {
                     hsurfArrayCell = scapeMVisibility.getHsurfArrayCell(targetRect, geoCoding, elevationModel);
                 }
 
-                final double hsurfMeanCell = scapeMVisibility.getHsurfMeanCell(hsurfArrayCell, geoCoding, classifier);
+                final double hsurfMeanCell = scapeMVisibility.getHsurfMeanCell(hsurfArrayCell, cloudFlagsTile);
 
                 final double[][] cosSzaArrayCell = scapeMVisibility.getCosSzaArrayCell(targetRect, szaTile);
-                final double cosSzaMeanCell = scapeMVisibility.getCosSzaMeanCell(cosSzaArrayCell, geoCoding, classifier);
+                final double cosSzaMeanCell = scapeMVisibility.getCosSzaMeanCell(cosSzaArrayCell, cloudFlagsTile);
 
                 final int doy = sourceProduct.getStartTime().getAsCalendar().get(Calendar.DAY_OF_YEAR);
                 double[][][] toaArrayCell = new double[L1_BAND_NUM][targetRect.width][targetRect.height];
+                if (targetRect.x == 750 && targetRect.y == 30) {
+                    System.out.println("targetRect = " + targetRect);
+                }
                 for (int bandId = 0; bandId < L1_BAND_NUM; bandId++) {
-                    toaArrayCell[bandId] = scapeMVisibility.getToaArrayCell(radianceTiles[bandId], targetRect, geoCoding, doy, classifier);
+                    toaArrayCell[bandId] = scapeMVisibility.getToaArrayCell(radianceTiles[bandId], targetRect, doy);
                     toaMinCell[bandId] = scapeMVisibility.getToaMinCell(toaArrayCell[bandId]);
                 }
 
                 // now get visibility estimate...
                 final boolean cellIsClear45Percent =
-                        scapeMVisibility.isCellClearLand(targetRect, geoCoding, cloudFlagsTile, classifier, 0.45);
+                        scapeMVisibility.isCellClearLand(targetRect, cloudFlagsTile, 0.45);
                 final double visibility = scapeMVisibility.getCellVisibility(targetRect, toaArrayCell,
                         toaMinCell, vza, sza, phi,
                         hsurfArrayCell,
@@ -190,9 +185,10 @@ public class ScapeMVisibilityOp extends MerisBasisOp implements Constants {
             } catch (Exception e) {
                 // todo
                 e.printStackTrace();
+                setCellSample(targetTile, targetRect, ScapeMConstants.VISIBILITY_NODATA_VALUE);
             }
         } else {
-            setCellSample(targetTile, targetRect, Double.NaN);
+            setCellSample(targetTile, targetRect, ScapeMConstants.VISIBILITY_NODATA_VALUE);
         }
     }
 
@@ -212,8 +208,9 @@ public class ScapeMVisibilityOp extends MerisBasisOp implements Constants {
         ProductUtils.copyMasks(sourceProduct, targetProduct);
 
         Band visibilityBand = targetProduct.addBand(VISIBILITY_BAND_NAME, ProductData.TYPE_FLOAT32);
-        visibilityBand.setNoDataValue(0.0);
-        visibilityBand.setNoDataValueUsed(true);
+        visibilityBand.setNoDataValue(ScapeMConstants.VISIBILITY_NODATA_VALUE);
+//        visibilityBand.setNoDataValueUsed(true);
+        visibilityBand.setValidPixelExpression(ScapeMConstants.SCAPEM_VALID_EXPR);
 
         if (sourceProduct.getProductType().contains("_RR")) {
             targetProduct.setPreferredTileSize(ScapeMConstants.RR_PIXELS_PER_CELL, ScapeMConstants.RR_PIXELS_PER_CELL);

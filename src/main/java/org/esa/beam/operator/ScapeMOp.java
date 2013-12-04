@@ -125,12 +125,12 @@ public class ScapeMOp extends MerisBasisOp implements Constants {
         cellVisibilityProduct = GPF.createProduct(OperatorSpi.getOperatorAlias(ScapeMVisibilityOp.class), visParams, cellVisibilityInput);
 
         // fill gaps...
-//        gapFilledVisibilityProduct = cellVisibilityProduct;
-        try {
-            gapFilledVisibilityProduct = ScapeMGapFill.gapFill(cellVisibilityProduct);
-        } catch (IOException e) {
-            throw new OperatorException(e.getMessage(), e);
-        }
+        gapFilledVisibilityProduct = cellVisibilityProduct;
+//        try {
+//            gapFilledVisibilityProduct = ScapeMGapFill.gapFill(cellVisibilityProduct);
+//        } catch (IOException e) {
+//            throw new OperatorException(e.getMessage(), e);
+//        }
 
         // smooth...       // todo
         smoothedVisibilityProduct = gapFilledVisibilityProduct;
@@ -145,6 +145,8 @@ public class ScapeMOp extends MerisBasisOp implements Constants {
         // derive reflectance...
 
          targetProduct = smoothedVisibilityProduct;
+        ProductUtils.copyFlagBands(cloudProduct, targetProduct, true);
+        ProductUtils.copyMasks(cloudProduct, targetProduct);
     }
 
     private void createTargetProduct() throws OperatorException {

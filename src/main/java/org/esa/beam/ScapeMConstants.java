@@ -59,4 +59,7 @@ public class ScapeMConstants {
             14.2274, 11.5368, 8.50600, 1.96148, 1.78669, 1.61394, 1.50473, 4.65445, 1.41177, 3.10430,
             0.0, 1.28467, 1.15624, 1.13002, 0.0
     };
+
+    public static final double VISIBILITY_NODATA_VALUE = 0.0;
+    public static final String SCAPEM_VALID_EXPR = "!l1_flags.INVALID";
 }
