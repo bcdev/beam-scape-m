@@ -54,7 +54,7 @@ public class ScapeMSmoothOp extends MerisBasisOp implements Constants {
     private Product targetProduct;
 
 
-    @Parameter(description = "JAI Convolve kernel size", defaultValue = "30")
+    @Parameter(description = "JAI Convolve kernel size", defaultValue = "15")
     private int kernelSize;
 
     @Override
