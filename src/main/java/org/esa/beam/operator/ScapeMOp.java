@@ -1,5 +1,6 @@
 package org.esa.beam.operator;
 
+import org.esa.beam.ScapeMConstants;
 import org.esa.beam.ScapeMMode;
 import org.esa.beam.framework.datamodel.Band;
 import org.esa.beam.framework.datamodel.FlagCoding;
@@ -14,6 +15,7 @@ import org.esa.beam.framework.gpf.annotations.SourceProduct;
 import org.esa.beam.framework.gpf.annotations.TargetProduct;
 import org.esa.beam.gpf.operators.meris.MerisBasisOp;
 import org.esa.beam.idepix.algorithms.scapem.FubScapeMOp;
+import org.esa.beam.io.LutAccess;
 import org.esa.beam.meris.l2auxdata.Constants;
 import org.esa.beam.util.BitSetter;
 import org.esa.beam.util.ProductUtils;
@@ -53,10 +55,7 @@ public class ScapeMOp extends MerisBasisOp implements Constants {
     public static final String REFL_BAND_PREFIX = "refl";
     public static final String CORR_FLAGS = "scapem_corr_flags";
 
-    public static final int RR_PIXELS_PER_CELL = 30;
-    public static final int FR_PIXELS_PER_CELL = 120;
-
-    protected ScapeMAlgorithm scapeMAlgorithm;
+    protected ScapeMLut scapeMLut;
 
     private Band[] reflBands;
     private Band flagBand;
@@ -99,6 +98,7 @@ public class ScapeMOp extends MerisBasisOp implements Constants {
         //        different approach for bands 2, 11, 15 (see paper)
         //
 
+        readAuxdata();
 
         try {
             // todo: this is only for ONE test product to compare with LG dimap input!! check if start time is null.
@@ -107,7 +107,6 @@ public class ScapeMOp extends MerisBasisOp implements Constants {
                 sourceProduct.setEndTime(ProductData.UTC.parse("20060819", "yyyyMMdd"));
                 //                int year = sourceProduct.getName()... // todo continue
             }
-            scapeMAlgorithm = new ScapeMAlgorithm(sourceProduct);
         } catch (Exception e) {
             throw new OperatorException("could not load L2Auxdata", e);
         }
@@ -125,6 +124,7 @@ public class ScapeMOp extends MerisBasisOp implements Constants {
         cellVisibilityInput.put("source", sourceProduct);
         cellVisibilityInput.put("cloud", cloudProduct);
         Map<String, Object> visParams = new HashMap<String, Object>(1);
+        visParams.put("scapeMLut", scapeMLut);
         // this is a product with grid resolution, but having equal visibility values over a cell (30x30km)
         // (follows the IDL implementation)
         cellVisibilityProduct = GPF.createProduct(OperatorSpi.getOperatorAlias(ScapeMVisibilityOp.class), visParams, cellVisibilityInput);
@@ -149,6 +149,7 @@ public class ScapeMOp extends MerisBasisOp implements Constants {
         aotConvertInput.put("source", sourceProduct);
         aotConvertInput.put("visibility", smoothedVisibilityProduct);
         Map<String, Object> aotConvertParams = new HashMap<String, Object>(1);
+        aotConvertParams.put("scapeMLut", scapeMLut);
         aotProduct = GPF.createProduct(OperatorSpi.getOperatorAlias(ScapeMVis2AotOp.class),
                 aotConvertParams, aotConvertInput);
 
@@ -159,6 +160,15 @@ public class ScapeMOp extends MerisBasisOp implements Constants {
         targetProduct = aotProduct;
         ProductUtils.copyFlagBands(cloudProduct, targetProduct, true);
         ProductUtils.copyMasks(cloudProduct, targetProduct);
+    }
+
+    private void readAuxdata() {
+        try {
+            scapeMLut = new ScapeMLut(LutAccess.getAtmParmsLookupTable());
+        } catch (IOException e) {
+            // todo
+            throw new OperatorException(e.getMessage());
+        }
     }
 
     private void createTargetProduct() throws OperatorException {
@@ -176,9 +186,11 @@ public class ScapeMOp extends MerisBasisOp implements Constants {
         targetProduct.getFlagCodingGroup().add(flagCoding);
 
         if (sourceProduct.getProductType().contains("_RR")) {
-            targetProduct.setPreferredTileSize(RR_PIXELS_PER_CELL, RR_PIXELS_PER_CELL);
+            targetProduct.setPreferredTileSize(ScapeMConstants.RR_PIXELS_PER_CELL,
+                    ScapeMConstants.RR_PIXELS_PER_CELL);
         } else {
-            targetProduct.setPreferredTileSize(FR_PIXELS_PER_CELL, FR_PIXELS_PER_CELL);
+            targetProduct.setPreferredTileSize(ScapeMConstants.FR_PIXELS_PER_CELL,
+                    ScapeMConstants.FR_PIXELS_PER_CELL);
         }
     }
 

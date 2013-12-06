@@ -13,6 +13,7 @@ import org.esa.beam.framework.dataop.resamp.Resampling;
 import org.esa.beam.framework.gpf.OperatorException;
 import org.esa.beam.framework.gpf.OperatorSpi;
 import org.esa.beam.framework.gpf.Tile;
+import org.esa.beam.framework.gpf.annotations.OperatorMetadata;
 import org.esa.beam.framework.gpf.annotations.Parameter;
 import org.esa.beam.framework.gpf.annotations.SourceProduct;
 import org.esa.beam.framework.gpf.annotations.TargetProduct;
@@ -23,12 +24,15 @@ import org.esa.beam.util.ProductUtils;
 import java.awt.*;
 
 /**
- * Created with IntelliJ IDEA.
- * User: olafd
- * Date: 05.12.13
- * Time: 23:38
- * To change this template use File | Settings | File Templates.
+ * Operator for visibility to AOT conversion.
+ *
+ * @author Tonio Fincke, Olaf Danne
  */
+@OperatorMetadata(alias = "beam.scapeM.visibility.aot", version = "1.0-SNAPSHOT",
+        authors = "Tonio Fincke, Olaf Danne",
+        copyright = "(c) 2013 Brockmann Consult",
+        internal = true,
+        description = "Operator for visibility to AOT conversion.")
 public class ScapeMVis2AotOp extends MerisBasisOp implements Constants {
 
     @SourceProduct(alias = "source")
@@ -40,15 +44,16 @@ public class ScapeMVis2AotOp extends MerisBasisOp implements Constants {
     @Parameter(description = "DEM name", defaultValue = "GETASSE30")
     private String demName;
 
+    @Parameter(description = "ScapeM AOT Lookup table")
+    private ScapeMLut scapeMLut;
+
     @TargetProduct
     private Product targetProduct;
 
-    protected ScapeMAlgorithm scapeMAlgorithm;
     private ElevationModel elevationModel;
 
     @Override
     public void initialize() throws OperatorException {
-        scapeMAlgorithm = new ScapeMAlgorithm(sourceProduct);
 
         final ElevationModelDescriptor demDescriptor = ElevationModelRegistry.getInstance().getDescriptor(demName);
         if (demDescriptor == null || !demDescriptor.isDemInstalled()) {
@@ -57,7 +62,6 @@ public class ScapeMVis2AotOp extends MerisBasisOp implements Constants {
         elevationModel = demDescriptor.createDem(Resampling.BILINEAR_INTERPOLATION);
 
         createTargetProduct();
-
     }
 
     @Override
@@ -79,16 +83,17 @@ public class ScapeMVis2AotOp extends MerisBasisOp implements Constants {
         double[][] hsurfArrayCell;
         try {
             if (demTile != null) {
-                hsurfArrayCell = scapeMAlgorithm.getHsurfArrayCell(targetRect, geoCoding, demTile);
+                hsurfArrayCell = ScapeMAlgorithm.getHsurfArrayCell(targetRect, geoCoding, demTile, scapeMLut);
             } else {
-                hsurfArrayCell = scapeMAlgorithm.getHsurfArrayCell(targetRect, geoCoding, elevationModel);
+                hsurfArrayCell = ScapeMAlgorithm.getHsurfArrayCell(targetRect, geoCoding, elevationModel, scapeMLut);
             }
             for (int y = targetRect.y; y < targetRect.y + targetRect.height; y++) {
                 for (int x = targetRect.x; x < targetRect.x + targetRect.width; x++) {
                     final double visibility = visibilityTile.getSampleDouble(x, y);
                     if (visibility != ScapeMConstants.VISIBILITY_NODATA_VALUE) {
-                        final double aot550 =
-                                scapeMAlgorithm.getCellAot550(visibility, hsurfArrayCell[x-targetRect.x][y-targetRect.y]);
+                        final double aot550 = ScapeMAlgorithm.getCellAot550(visibility,
+                                hsurfArrayCell[x-targetRect.x][y-targetRect.y],
+                                scapeMLut);
                         targetTile.setSample(x, y, aot550);
                     } else {
                         targetTile.setSample(x, y, ScapeMConstants.AOT_NODATA_VALUE);
@@ -97,7 +102,7 @@ public class ScapeMVis2AotOp extends MerisBasisOp implements Constants {
             }
         } catch (Exception e) {
             // todo
-            e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+            e.printStackTrace();
         }
     }
 

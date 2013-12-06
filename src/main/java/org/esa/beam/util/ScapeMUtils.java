@@ -54,16 +54,6 @@ public class ScapeMUtils {
         return Math.sqrt(diffSqr/(src.length-1));
     }
 
-    public static double getStdevDouble1D(Double[] src) {
-        double diffSqr = 0.0;
-        double mean = getMeanDouble1D(src);
-        for (Double d : src) {
-            diffSqr += Math.pow(d - mean, 2.0);
-        }
-        return Math.sqrt(diffSqr/(src.length-1));
-    }
-
-
     private static double getSumDouble1D(double[] src) {
         double sum = 0.0;
         for (double d : src) {
