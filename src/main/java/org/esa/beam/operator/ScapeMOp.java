@@ -1,7 +1,10 @@
 package org.esa.beam.operator;
 
 import org.esa.beam.ScapeMMode;
-import org.esa.beam.framework.datamodel.*;
+import org.esa.beam.framework.datamodel.Band;
+import org.esa.beam.framework.datamodel.FlagCoding;
+import org.esa.beam.framework.datamodel.Product;
+import org.esa.beam.framework.datamodel.ProductData;
 import org.esa.beam.framework.gpf.GPF;
 import org.esa.beam.framework.gpf.OperatorException;
 import org.esa.beam.framework.gpf.OperatorSpi;
@@ -12,8 +15,6 @@ import org.esa.beam.framework.gpf.annotations.TargetProduct;
 import org.esa.beam.gpf.operators.meris.MerisBasisOp;
 import org.esa.beam.idepix.algorithms.scapem.FubScapeMOp;
 import org.esa.beam.meris.l2auxdata.Constants;
-import org.esa.beam.meris.l2auxdata.L2AuxData;
-import org.esa.beam.meris.l2auxdata.L2AuxDataProvider;
 import org.esa.beam.util.BitSetter;
 import org.esa.beam.util.ProductUtils;
 
@@ -27,9 +28,9 @@ import java.util.Map;
  * @author Tonio Fincke, Olaf Danne
  */
 @OperatorMetadata(alias = "beam.scapeM", version = "1.0-SNAPSHOT",
-                  authors = "Tonio Fincke, Olaf Danne",
-                  copyright = "(c) 2013 Brockmann Consult",
-                  description = "Operator for MERIS atmospheric correction with SCAPE-M algorithm.")
+        authors = "Tonio Fincke, Olaf Danne",
+        copyright = "(c) 2013 Brockmann Consult",
+        description = "Operator for MERIS atmospheric correction with SCAPE-M algorithm.")
 public class ScapeMOp extends MerisBasisOp implements Constants {
     public static final String VERSION = "1.0-SNAPSHOT";
 
@@ -55,18 +56,17 @@ public class ScapeMOp extends MerisBasisOp implements Constants {
     public static final int RR_PIXELS_PER_CELL = 30;
     public static final int FR_PIXELS_PER_CELL = 120;
 
-    protected ScapeMVisibility scapeMVisibility;
+    protected ScapeMAlgorithm scapeMAlgorithm;
 
     private Band[] reflBands;
     private Band flagBand;
-
-    protected L2AuxData l2AuxData;
 
 
     private Product cloudProduct;
     private Product cellVisibilityProduct;
     private Product gapFilledVisibilityProduct;
     private Product smoothedVisibilityProduct;
+    private Product aotProduct;
 
 
     @Override
@@ -101,8 +101,13 @@ public class ScapeMOp extends MerisBasisOp implements Constants {
 
 
         try {
-            l2AuxData = L2AuxDataProvider.getInstance().getAuxdata(sourceProduct);
-            scapeMVisibility = new ScapeMVisibility(l2AuxData);
+            // todo: this is only for ONE test product to compare with LG dimap input!! check if start time is null.
+            if (sourceProduct.getStartTime() == null) {
+                sourceProduct.setStartTime(ProductData.UTC.parse("20060819", "yyyyMMdd"));
+                sourceProduct.setEndTime(ProductData.UTC.parse("20060819", "yyyyMMdd"));
+                //                int year = sourceProduct.getName()... // todo continue
+            }
+            scapeMAlgorithm = new ScapeMAlgorithm(sourceProduct);
         } catch (Exception e) {
             throw new OperatorException("could not load L2Auxdata", e);
         }
@@ -115,7 +120,7 @@ public class ScapeMOp extends MerisBasisOp implements Constants {
         Map<String, Object> cloudParams = new HashMap<String, Object>(1);
         cloudProduct = GPF.createProduct(OperatorSpi.getOperatorAlias(FubScapeMOp.class), cloudParams, idepixInput);
 
-        // get the cell visibility product...
+        // get the cell visibility/AOT product...
         Map<String, Product> cellVisibilityInput = new HashMap<String, Product>(4);
         cellVisibilityInput.put("source", sourceProduct);
         cellVisibilityInput.put("cloud", cloudProduct);
@@ -132,19 +137,26 @@ public class ScapeMOp extends MerisBasisOp implements Constants {
             throw new OperatorException(e.getMessage(), e);
         }
 
-        // smooth...       // todo
+        // smooth...       // todo: insert smoothing finally after reflectances are verified against IDL
         smoothedVisibilityProduct = gapFilledVisibilityProduct;
 //        Map<String, Product> smoothInput = new HashMap<String, Product>(4);
 //        smoothInput.put("source", gapFilledVisibilityProduct);
 //        smoothedVisibilityProduct = GPF.createProduct(OperatorSpi.getOperatorAlias(ScapeMSmoothOp.class), GPF.NO_PARAMS, smoothInput);
 
         // convert to AOT
+//        aotProduct = smoothedVisibilityProduct;
+        Map<String, Product> aotConvertInput = new HashMap<String, Product>(4);
+        aotConvertInput.put("source", sourceProduct);
+        aotConvertInput.put("visibility", smoothedVisibilityProduct);
+        Map<String, Object> aotConvertParams = new HashMap<String, Object>(1);
+        aotProduct = GPF.createProduct(OperatorSpi.getOperatorAlias(ScapeMVis2AotOp.class),
+                aotConvertParams, aotConvertInput);
 
         // derive CWV...
 
         // derive reflectance...
 
-         targetProduct = smoothedVisibilityProduct;
+        targetProduct = aotProduct;
         ProductUtils.copyFlagBands(cloudProduct, targetProduct, true);
         ProductUtils.copyMasks(cloudProduct, targetProduct);
     }

@@ -1,10 +1,12 @@
 package org.esa.beam.operator;
 
 
+import Stats.LinFit;
 import org.esa.beam.ScapeMConstants;
 import org.esa.beam.framework.datamodel.GeoCoding;
 import org.esa.beam.framework.datamodel.GeoPos;
 import org.esa.beam.framework.datamodel.PixelPos;
+import org.esa.beam.framework.datamodel.Product;
 import org.esa.beam.framework.dataop.dem.ElevationModel;
 import org.esa.beam.framework.gpf.OperatorException;
 import org.esa.beam.framework.gpf.Tile;
@@ -12,13 +14,13 @@ import org.esa.beam.io.LutAccess;
 import org.esa.beam.math.Powell;
 import org.esa.beam.meris.l2auxdata.Constants;
 import org.esa.beam.meris.l2auxdata.L2AuxData;
+import org.esa.beam.meris.l2auxdata.L2AuxDataProvider;
 import org.esa.beam.util.CellSample;
 import org.esa.beam.util.CellSampleComparator;
 import org.esa.beam.util.ScapeMUtils;
 import org.esa.beam.util.Varsol;
 import org.esa.beam.util.math.LookupTable;
 import org.esa.beam.util.math.MathUtils;
-import org.esa.beam.watermask.operator.WatermaskClassifier;
 
 import java.awt.*;
 import java.io.IOException;
@@ -31,7 +33,7 @@ import java.util.List;
  *
  * @author Tonio Fincke, Olaf Danne
  */
-public class ScapeMVisibility implements Constants {
+public class ScapeMAlgorithm implements Constants {
 
     // Auxdata
     protected L2AuxData l2AuxData;
@@ -51,10 +53,15 @@ public class ScapeMVisibility implements Constants {
     private double cwvMax;
 
     private double[] visArrayLUT;
+    private double[] hsfArrayLUT;
 
 
-    public ScapeMVisibility(L2AuxData auxData) {
-        l2AuxData = auxData;
+    public ScapeMAlgorithm(Product sourceProduct) {
+        try {
+            l2AuxData = L2AuxDataProvider.getInstance().getAuxdata(sourceProduct);
+        } catch (Exception e) {
+            throw new OperatorException("could not load L2Auxdata", e);
+        }
         readAuxdata();
     }
 
@@ -71,9 +78,12 @@ public class ScapeMVisibility implements Constants {
                             Tile cloudFlags,
                             double percentage) {
         int countClearLand = 0;
+        if (rect.x == 30 && rect.y == 0) {
+            System.out.println("targetRect = " + rect);
+        }
         for (int y = rect.y; y < rect.y + rect.height; y++) {
             for (int x = rect.x; x < rect.x + rect.width; x++) {
-                if (cloudFlags.getSampleBit(x, y, 4)) {   // mask_land_all !!
+                if (cloudFlags.getSampleBit(x, y, 3)) {   // mask_land_all !!
                     countClearLand++;
                 }
             }
@@ -97,7 +107,7 @@ public class ScapeMVisibility implements Constants {
         for (int y = 0; y < hSurfCell[0].length; y++) {
             for (int x = 0; x < hSurfCell.length; x++) {
                 if (!(Double.isNaN(hSurfCell[x][y]))) {
-                    if (cloudFlags.getSampleBit(rect.x + x, rect.y + y, 4)) {   // mask_land_all !!
+                    if (cloudFlags.getSampleBit(rect.x + x, rect.y + y, 3)) {   // mask_land_all !!
                         hsurfMean += hSurfCell[x][y];
                         hsurfCount++;
                     }
@@ -155,7 +165,7 @@ public class ScapeMVisibility implements Constants {
         for (int y = 0; y < cosSzaCell[0].length; y++) {
             for (int x = 0; x < cosSzaCell.length; x++) {
                 if (!(Double.isNaN(cosSzaCell[x][y]))) {
-                    if (cloudFlags.getSampleBit(rect.x + x, rect.y + y, 4)) {   // mask_land_all !!
+                    if (cloudFlags.getSampleBit(rect.x + x, rect.y + y, 3)) {   // mask_land_all !!
                         cosSzaMean += cosSzaCell[x][y];
                         cosSzaCount++;
                     }
@@ -435,13 +445,17 @@ public class ScapeMVisibility implements Constants {
         raaMin = raaArray[0];
         raaMax = raaArray[raaArray.length - 1];
 
-        final double[] hsfArray = atmParamLut.getDimension(3).getSequence();
-        hsfMin = hsfArray[0] + 0.001;
-        hsfMax = hsfArray[hsfArray.length - 1] - 0.001;
+        hsfArrayLUT = atmParamLut.getDimension(3).getSequence();
+        hsfArrayLUT[0] += 0.001;
+        hsfMin = hsfArrayLUT[0];
+        hsfArrayLUT[hsfArrayLUT.length - 1] -= 0.001;
+        hsfMax = hsfArrayLUT[hsfArrayLUT.length - 1];
 
         visArrayLUT = atmParamLut.getDimension(4).getSequence();
-        visMin = visArrayLUT[0] + 0.001;
-        visMax = visArrayLUT[visArrayLUT.length - 1] - 0.001;
+        visArrayLUT[0] += 0.001;
+        visMin = visArrayLUT[0];
+        visArrayLUT[visArrayLUT.length - 1] -= 0.001;
+        visMax = visArrayLUT[visArrayLUT.length - 1];
 
         final double[] cwvArray = atmParamLut.getDimension(5).getSequence();
         cwvMin = cwvArray[0] + 0.001;
@@ -457,6 +471,100 @@ public class ScapeMVisibility implements Constants {
                 (hsf < hsfMin || hsf > hsfMax) ||
                 (vis < visMin || vis > visMax) ||
                 (cwv < cwvMin || cwv > cwvMax);
+    }
+
+    public double[][] getCellAot550(double visibility, Rectangle rect, double[][] hsurfArrayCell) {
+
+        double[][] aot550 = new double[rect.width][rect.height];
+
+        double lnVis = Math.log(visibility);
+
+        double[][] aCoeff = new double[hsfArrayLUT.length][2];
+        double[] lnVisGr = new double[visArrayLUT.length];
+        double[] lnAotGr = new double[visArrayLUT.length];
+        for (int i = 0; i < lnVisGr.length; i++) {
+            lnVisGr[i] = Math.log(visArrayLUT[i]);
+        }
+
+        for (int i = 0; i < hsfArrayLUT.length; i++) {
+            for (int j = 0; j < lnVisGr.length; j++) {
+                lnAotGr[j] = Math.log(ScapeMConstants.AOT_GRID[i][j]);
+            }
+            final LinFit linFit = new LinFit(lnVisGr, lnAotGr, lnVisGr.length);
+            aCoeff[i][0] = linFit.getA();
+            aCoeff[i][1] = linFit.getB();
+        }
+
+        if (rect.x == 30 && rect.y == 0) {
+            System.out.println("targetRect = " + rect);
+        }
+
+        for (int y = rect.y; y < rect.y + rect.height; y++) {
+            for (int x = rect.x; x < rect.x + rect.width; x++) {
+                final double hsurf = hsurfArrayCell[x - rect.x][y - rect.y];
+                int hsfIndexToUse = -1;
+                for (int i = 0; i < hsfArrayLUT.length; i++) {
+                    if (hsurf >= hsfArrayLUT[i]) {
+                        hsfIndexToUse = i;
+                    }
+                }
+                if (hsfIndexToUse >= 0) {
+                    double hsp = (hsurf - hsfArrayLUT[hsfIndexToUse]) /
+                            (hsfArrayLUT[hsfIndexToUse + 1] - hsfArrayLUT[hsfIndexToUse]);
+                    double aotTmp1 = Math.exp(aCoeff[hsfIndexToUse][0] + aCoeff[hsfIndexToUse][1] * lnVis);
+                    double aotTmp2 = Math.exp(aCoeff[hsfIndexToUse + 1][0] + aCoeff[hsfIndexToUse + 1][1] * lnVis);
+                    aot550[x - rect.x][y - rect.y] = aotTmp1 + (aotTmp2 - aotTmp1) * hsp;
+                } else {
+                    aot550[x - rect.x][y - rect.y] = ScapeMConstants.AOT_NODATA_VALUE;
+                }
+            }
+        }
+
+        return aot550;
+
+    }
+
+    public double getCellAot550(double visibility, double hsurfArrayCell) {
+
+        double aot550;
+
+        double lnVis = Math.log(visibility);
+
+        double[][] aCoeff = new double[hsfArrayLUT.length][2];
+        double[] lnVisGr = new double[visArrayLUT.length];
+        double[] lnAotGr = new double[visArrayLUT.length];
+        for (int i = 0; i < lnVisGr.length; i++) {
+            lnVisGr[i] = Math.log(visArrayLUT[i]);
+        }
+
+        for (int i = 0; i < hsfArrayLUT.length; i++) {
+            for (int j = 0; j < lnVisGr.length; j++) {
+                lnAotGr[j] = Math.log(ScapeMConstants.AOT_GRID[i][j]);
+            }
+            final LinFit linFit = new LinFit(lnVisGr, lnAotGr, lnVisGr.length);
+            aCoeff[i][0] = linFit.getA();
+            aCoeff[i][1] = linFit.getB();
+        }
+
+        final double hsurf = hsurfArrayCell;
+        int hsfIndexToUse = -1;
+        for (int i = 0; i < hsfArrayLUT.length; i++) {
+            if (hsurf >= hsfArrayLUT[i]) {
+                hsfIndexToUse = i;
+            }
+        }
+        if (hsfIndexToUse >= 0) {
+            double hsp = (hsurf - hsfArrayLUT[hsfIndexToUse]) /
+                    (hsfArrayLUT[hsfIndexToUse + 1] - hsfArrayLUT[hsfIndexToUse]);
+            double aotTmp1 = Math.exp(aCoeff[hsfIndexToUse][0] + aCoeff[hsfIndexToUse][1] * lnVis);
+            double aotTmp2 = Math.exp(aCoeff[hsfIndexToUse + 1][0] + aCoeff[hsfIndexToUse + 1][1] * lnVis);
+            aot550 = aotTmp1 + (aotTmp2 - aotTmp1) * hsp;
+        } else {
+            aot550 = ScapeMConstants.AOT_NODATA_VALUE;
+        }
+
+        return aot550;
+
     }
 
     // todo: check if we just need the 'compute' method
@@ -527,9 +635,9 @@ public class ScapeMVisibility implements Constants {
                     // PowellTestFunction_1 function1 = new PowellTestFunction_1();
                     // double fmin = Powell.fmin(xVector, xi, ftol, function1);
                     double fmin = Powell.fmin(xVector,
-                                              xiInput,
-                                              ScapeMConstants.POWELL_FTOL,
-                                              toaMinimization);
+                            xiInput,
+                            ScapeMConstants.POWELL_FTOL,
+                            toaMinimization);
                     double[] chiSqr = toaMinimization.getChiSquare();
                     double chiSqrMean = ScapeMUtils.getMeanDouble1D(chiSqr);
 
@@ -547,9 +655,9 @@ public class ScapeMVisibility implements Constants {
                                 toaMinimization.setEmVegIndex(j);
                                 toaMinimization.setRhoVeg(ScapeMConstants.RHO_VEG_ALL[j]);
                                 fmin = Powell.fmin(xVector,
-                                                   xiInput,
-                                                   ScapeMConstants.POWELL_FTOL,
-                                                   toaMinimization);
+                                        xiInput,
+                                        ScapeMConstants.POWELL_FTOL,
+                                        toaMinimization);
                             }
                         }
                     }

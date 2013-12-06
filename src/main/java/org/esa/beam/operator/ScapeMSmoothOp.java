@@ -1,40 +1,22 @@
 package org.esa.beam.operator;
 
-import com.bc.ceres.core.ProgressMonitor;
-import com.bc.ceres.glevel.MultiLevelImage;
 import org.esa.beam.ScapeMConstants;
-import org.esa.beam.dataio.envisat.EnvisatConstants;
 import org.esa.beam.framework.datamodel.Band;
-import org.esa.beam.framework.datamodel.GeoCoding;
 import org.esa.beam.framework.datamodel.Product;
-import org.esa.beam.framework.datamodel.ProductData;
-import org.esa.beam.framework.dataop.dem.ElevationModel;
-import org.esa.beam.framework.dataop.dem.ElevationModelDescriptor;
-import org.esa.beam.framework.dataop.dem.ElevationModelRegistry;
-import org.esa.beam.framework.dataop.resamp.Resampling;
 import org.esa.beam.framework.gpf.OperatorException;
 import org.esa.beam.framework.gpf.OperatorSpi;
-import org.esa.beam.framework.gpf.Tile;
 import org.esa.beam.framework.gpf.annotations.OperatorMetadata;
 import org.esa.beam.framework.gpf.annotations.Parameter;
 import org.esa.beam.framework.gpf.annotations.SourceProduct;
 import org.esa.beam.framework.gpf.annotations.TargetProduct;
 import org.esa.beam.gpf.operators.meris.MerisBasisOp;
-import org.esa.beam.idepix.util.IdepixUtils;
-import org.esa.beam.meris.brr.HelperFunctions;
 import org.esa.beam.meris.l2auxdata.Constants;
-import org.esa.beam.meris.l2auxdata.L2AuxData;
-import org.esa.beam.meris.l2auxdata.L2AuxDataProvider;
 import org.esa.beam.util.ProductUtils;
-import org.esa.beam.watermask.operator.WatermaskClassifier;
 
-import javax.media.jai.*;
-import javax.media.jai.operator.ScaleDescriptor;
-import java.awt.*;
-import java.awt.image.Kernel;
+import javax.media.jai.JAI;
+import javax.media.jai.KernelJAI;
+import javax.media.jai.RenderedOp;
 import java.awt.image.RenderedImage;
-import java.io.IOException;
-import java.util.Calendar;
 
 /**
  * Operator for MERIS atmospheric correction with SCAPE-M algorithm: cell visibility retrieval part.
@@ -42,9 +24,10 @@ import java.util.Calendar;
  * @author Tonio Fincke, Olaf Danne
  */
 @OperatorMetadata(alias = "beam.scapeM.smooth", version = "1.0-SNAPSHOT",
-                  authors = "Tonio Fincke, Olaf Danne",
-                  copyright = "(c) 2013 Brockmann Consult",
-                  description = "Operator for MERIS atmospheric correction with SCAPE-M algorithm: cell visibility retrieval part.")
+        authors = "Tonio Fincke, Olaf Danne",
+        copyright = "(c) 2013 Brockmann Consult",
+        internal = true,
+        description = "Operator for MERIS atmospheric correction with SCAPE-M algorithm: cell visibility retrieval part.")
 public class ScapeMSmoothOp extends MerisBasisOp implements Constants {
 
     @SourceProduct(alias = "source")
@@ -66,10 +49,12 @@ public class ScapeMSmoothOp extends MerisBasisOp implements Constants {
 
     private void createTargetProduct() throws OperatorException {
         targetProduct = new Product(sourceProduct.getName(),
-                                    sourceProduct.getProductType(),
-                                    sourceProduct.getSceneRasterWidth(),
-                                    sourceProduct.getSceneRasterHeight());
+                sourceProduct.getProductType(),
+                sourceProduct.getSceneRasterWidth(),
+                sourceProduct.getSceneRasterHeight());
         targetProduct.setPreferredTileSize(sourceProduct.getPreferredTileSize());
+        targetProduct.setStartTime(sourceProduct.getStartTime());
+        targetProduct.setEndTime(sourceProduct.getEndTime());
 
         ProductUtils.copyMetadata(sourceProduct, targetProduct);
         ProductUtils.copyTiePointGrids(sourceProduct, targetProduct);
@@ -78,7 +63,7 @@ public class ScapeMSmoothOp extends MerisBasisOp implements Constants {
 
         KernelJAI kernel = createConvolveKernel();
 
-        Band b = sourceProduct.getBand(ScapeMVisibilityOp.VISIBILITY_BAND_NAME);
+        Band b = sourceProduct.getBand(ScapeMConstants.VISIBILITY_BAND_NAME);
         RenderedImage sourceImage = b.getSourceImage();
         RenderedOp targetImage = JAI.create("convolve", sourceImage, kernel);
 
@@ -91,14 +76,14 @@ public class ScapeMSmoothOp extends MerisBasisOp implements Constants {
 //                                                              Interpolation.getInstance(
 //                                                                      Interpolation.INTERP_BICUBIC), null);
 
-        Band targetBand = ProductUtils.copyBand(ScapeMVisibilityOp.VISIBILITY_BAND_NAME, sourceProduct, targetProduct, false);
+        Band targetBand = ProductUtils.copyBand(ScapeMConstants.VISIBILITY_BAND_NAME, sourceProduct, targetProduct, false);
         targetBand.setSourceImage(targetImage);
     }
 
     private KernelJAI createConvolveKernel() {
-        float[] kernelMatrix = new float[kernelSize*kernelSize];
-        for(int k=0;k<kernelMatrix.length;k++) {
-            kernelMatrix[k] = 1.0f/(kernelSize*kernelSize);
+        float[] kernelMatrix = new float[kernelSize * kernelSize];
+        for (int k = 0; k < kernelMatrix.length; k++) {
+            kernelMatrix[k] = 1.0f / (kernelSize * kernelSize);
         }
         return new KernelJAI(kernelSize, kernelSize, kernelMatrix);
     }

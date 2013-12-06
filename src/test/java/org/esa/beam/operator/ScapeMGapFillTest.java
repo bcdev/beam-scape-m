@@ -1,5 +1,6 @@
 package org.esa.beam.operator;
 
+import org.esa.beam.ScapeMConstants;
 import org.esa.beam.framework.datamodel.Band;
 import org.esa.beam.framework.datamodel.Product;
 import org.esa.beam.framework.datamodel.ProductData;
@@ -89,7 +90,7 @@ public class ScapeMGapFillTest {
     public void testScapeMGapFill() throws IOException {
         final int pixelsPerCell = 2;
         Product productToBeFilled = createUnFilledDummyRRProduct(pixelsPerCell, 0);
-        Band unfilledProductBand = productToBeFilled.getBand(ScapeMVisibilityOp.VISIBILITY_BAND_NAME);
+        Band unfilledProductBand = productToBeFilled.getBand(ScapeMConstants.VISIBILITY_BAND_NAME);
 
         final int origWidth = productToBeFilled.getSceneRasterWidth();
         final int origHeight = productToBeFilled.getSceneRasterHeight();
@@ -107,7 +108,7 @@ public class ScapeMGapFillTest {
         assertEquals(productToBeFilled.getSceneRasterWidth(), width);
         int height = filledProduct.getSceneRasterHeight();
         assertEquals(productToBeFilled.getSceneRasterHeight(), height);
-        final Band filledProductBand = filledProduct.getBand(ScapeMVisibilityOp.VISIBILITY_BAND_NAME);
+        final Band filledProductBand = filledProduct.getBand(ScapeMConstants.VISIBILITY_BAND_NAME);
         assertNotNull(filledProductBand);
         int cellHeight = filledProduct.getSceneRasterHeight() / pixelsPerCell;
         for (int y = 0; y < height; y++) {
@@ -123,7 +124,7 @@ public class ScapeMGapFillTest {
     public void testScapeMGapFillWithProductWithUnevenlySizedTiles() throws IOException {
         final int pixelsPerCell = 2;
         Product productToBeFilled = createUnFilledDummyRRProduct(pixelsPerCell, 1);
-        Band unfilledProductBand = productToBeFilled.getBand(ScapeMVisibilityOp.VISIBILITY_BAND_NAME);
+        Band unfilledProductBand = productToBeFilled.getBand(ScapeMConstants.VISIBILITY_BAND_NAME);
 
         final int origWidth = productToBeFilled.getSceneRasterWidth();
         final int origHeight = productToBeFilled.getSceneRasterHeight();
@@ -141,7 +142,7 @@ public class ScapeMGapFillTest {
         assertEquals(origWidth, width);
         int height = filledProduct.getSceneRasterHeight();
         assertEquals(origHeight, height);
-        final Band filledProductBand = filledProduct.getBand(ScapeMVisibilityOp.VISIBILITY_BAND_NAME);
+        final Band filledProductBand = filledProduct.getBand(ScapeMConstants.VISIBILITY_BAND_NAME);
         assertNotNull(filledProductBand);
 
         for (int y = 0; y < height; y++) {
@@ -174,7 +175,7 @@ public class ScapeMGapFillTest {
         final int productHeight = pixelsPerCell * 4 + offset;
         Product product = new Product("dummyRRProduct", "doesntMatter", productWidth, productHeight);
         product.setPreferredTileSize(pixelsPerCell, pixelsPerCell);
-        final String bandName = ScapeMVisibilityOp.VISIBILITY_BAND_NAME;
+        final String bandName = ScapeMConstants.VISIBILITY_BAND_NAME;
         final Band band = new Band(bandName, ProductData.TYPE_FLOAT32, productWidth, productHeight);
         band.setNoDataValue(1000.0);
         product.addBand(band);

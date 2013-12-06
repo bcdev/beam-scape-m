@@ -1,5 +1,6 @@
 package org.esa.beam.operator;
 
+import org.esa.beam.ScapeMConstants;
 import org.esa.beam.framework.datamodel.Band;
 import org.esa.beam.framework.datamodel.Product;
 import org.esa.beam.jai.ResolutionLevel;
@@ -71,7 +72,7 @@ public class ScapeMGapFill {
     }
 
     public static Product gapFill(Product product) throws IOException {
-        final Band visibilityBand = product.getBand(ScapeMVisibilityOp.VISIBILITY_BAND_NAME);
+        final Band visibilityBand = product.getBand(ScapeMConstants.VISIBILITY_BAND_NAME);
         final double noDataValue = visibilityBand.getNoDataValue();
         final int tileWidth = (int) product.getPreferredTileSize().getWidth();
         final int tileHeight = (int) product.getPreferredTileSize().getHeight();
