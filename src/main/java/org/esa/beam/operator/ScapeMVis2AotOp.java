@@ -39,7 +39,7 @@ public class ScapeMVis2AotOp extends MerisBasisOp implements Constants {
     private Product sourceProduct;
 
     @SourceProduct(alias = "visibility")
-    private Product visibiliyProduct;
+    private Product visibilityProduct;
 
     @Parameter(description = "DEM name", defaultValue = "GETASSE30")
     private String demName;
@@ -76,7 +76,7 @@ public class ScapeMVis2AotOp extends MerisBasisOp implements Constants {
             demTile = getSourceTile(demBand, targetRect);
         }
 
-        Band visibilityBand = visibiliyProduct.getBand(ScapeMConstants.VISIBILITY_BAND_NAME);
+        Band visibilityBand = visibilityProduct.getBand(ScapeMConstants.VISIBILITY_BAND_NAME);
         Tile visibilityTile = getSourceTile(visibilityBand, targetRect);
 
 

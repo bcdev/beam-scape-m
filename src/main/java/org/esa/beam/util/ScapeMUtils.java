@@ -62,4 +62,8 @@ public class ScapeMUtils {
         return sum;
     }
 
+    public static double getMeanDouble2D(double[][] wv) {
+        // todo implement
+        return 0;  //To change body of created methods use File | Settings | File Templates.
+    }
 }

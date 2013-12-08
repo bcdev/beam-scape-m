@@ -73,4 +73,9 @@ public class ScapeMConstants {
             {0.402420, 0.285551, 0.199061, 0.138343, 0.089596, 0.0623010, 0.0439519}
     };
 
+    public static final double WV_INIT = 2.0;
+    public static final double VIS_INIT = 23.0;
+
+    public static final double FTOL = 1.E-4;
+    public static final int MAXITER = 10000;
 }

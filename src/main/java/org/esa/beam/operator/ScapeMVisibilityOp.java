@@ -46,9 +46,6 @@ public class ScapeMVisibilityOp extends MerisBasisOp implements Constants {
     @Parameter(description = "ScapeM AOT Lookup table")
     private ScapeMLut scapeMLut;
 
-    @Parameter(description = "If set, visibility band is written", defaultValue = "false")
-    private boolean outputVisibility;
-
     @SourceProduct(alias = "source")
     private Product sourceProduct;
     @SourceProduct(alias = "cloud")

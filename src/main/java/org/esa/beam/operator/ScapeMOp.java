@@ -51,21 +51,14 @@ public class ScapeMOp extends MerisBasisOp implements Constants {
     @TargetProduct
     private Product targetProduct;
 
-    public static final String RADIANCE_BAND_PREFIX = "radiance";
-    public static final String REFL_BAND_PREFIX = "refl";
-    public static final String CORR_FLAGS = "scapem_corr_flags";
-
     protected ScapeMLut scapeMLut;
-
-    private Band[] reflBands;
-    private Band flagBand;
-
 
     private Product cloudProduct;
     private Product cellVisibilityProduct;
     private Product gapFilledVisibilityProduct;
     private Product smoothedVisibilityProduct;
     private Product aotProduct;
+    private Product atmosCorrProduct;
 
 
     @Override
@@ -111,8 +104,6 @@ public class ScapeMOp extends MerisBasisOp implements Constants {
             throw new OperatorException("could not load L2Auxdata", e);
         }
 
-        createTargetProduct();
-
         // get the cloud product from Idepix...
         Map<String, Product> idepixInput = new HashMap<String, Product>(4);
         idepixInput.put("source", sourceProduct);
@@ -143,7 +134,7 @@ public class ScapeMOp extends MerisBasisOp implements Constants {
 //        smoothInput.put("source", gapFilledVisibilityProduct);
 //        smoothedVisibilityProduct = GPF.createProduct(OperatorSpi.getOperatorAlias(ScapeMSmoothOp.class), GPF.NO_PARAMS, smoothInput);
 
-        // convert to AOT
+        // convert visibility to AOT
 //        aotProduct = smoothedVisibilityProduct;
         Map<String, Product> aotConvertInput = new HashMap<String, Product>(4);
         aotConvertInput.put("source", sourceProduct);
@@ -154,12 +145,22 @@ public class ScapeMOp extends MerisBasisOp implements Constants {
                 aotConvertParams, aotConvertInput);
 
         // derive CWV...
-
         // derive reflectance...
+        atmosCorrProduct = smoothedVisibilityProduct;
+        Map<String, Product> atmosCorrInput = new HashMap<String, Product>(4);
+        atmosCorrInput.put("source", sourceProduct);
+        atmosCorrInput.put("cloud", cloudProduct);
+        atmosCorrInput.put("visibility", smoothedVisibilityProduct);
+        Map<String, Object> atmosCorrParams = new HashMap<String, Object>(1);
+        atmosCorrParams.put("scapeMLut", scapeMLut);
+        aotProduct = GPF.createProduct(OperatorSpi.getOperatorAlias(ScapeMVis2AotOp.class),
+                atmosCorrParams, atmosCorrInput);
 
-        targetProduct = aotProduct;
+
+        targetProduct = atmosCorrProduct;
         ProductUtils.copyFlagBands(cloudProduct, targetProduct, true);
         ProductUtils.copyMasks(cloudProduct, targetProduct);
+        ProductUtils.copyBand(ScapeMConstants.AOT550_BAND_NAME, aotProduct, atmosCorrProduct, true);
     }
 
     private void readAuxdata() {
@@ -170,53 +171,6 @@ public class ScapeMOp extends MerisBasisOp implements Constants {
             throw new OperatorException(e.getMessage());
         }
     }
-
-    private void createTargetProduct() throws OperatorException {
-        targetProduct = createCompatibleProduct(sourceProduct, "MER", "MER_L2");
-
-        ProductUtils.copyMetadata(sourceProduct, targetProduct);
-        ProductUtils.copyFlagBands(sourceProduct, targetProduct, true);
-        ProductUtils.copyMasks(sourceProduct, targetProduct);
-
-        reflBands = addBandGroup(REFL_BAND_PREFIX);
-
-        flagBand = targetProduct.addBand(CORR_FLAGS, ProductData.TYPE_INT16);
-        FlagCoding flagCoding = createFlagCoding();
-        flagBand.setSampleCoding(flagCoding);
-        targetProduct.getFlagCodingGroup().add(flagCoding);
-
-        if (sourceProduct.getProductType().contains("_RR")) {
-            targetProduct.setPreferredTileSize(ScapeMConstants.RR_PIXELS_PER_CELL,
-                    ScapeMConstants.RR_PIXELS_PER_CELL);
-        } else {
-            targetProduct.setPreferredTileSize(ScapeMConstants.FR_PIXELS_PER_CELL,
-                    ScapeMConstants.FR_PIXELS_PER_CELL);
-        }
-    }
-
-    private Band[] addBandGroup(String prefix) {
-        Band[] bands = new Band[L1_BAND_NUM];
-        for (int i = 0; i < L1_BAND_NUM; i++) {
-            Band targetBand = targetProduct.addBand(prefix + "_" + (i + 1), ProductData.TYPE_FLOAT32);
-            final String srcBandName = RADIANCE_BAND_PREFIX + "_" + (i + 1);
-            ProductUtils.copySpectralBandProperties(sourceProduct.getBand(srcBandName), targetBand);
-            targetBand.setNoDataValueUsed(true);
-            targetBand.setNoDataValue(BAD_VALUE);
-            bands[i] = targetBand;
-        }
-        return bands;
-    }
-
-    public static FlagCoding createFlagCoding() {
-        FlagCoding flagCoding = new FlagCoding(CORR_FLAGS);
-        int bitIndex = 0;
-        for (int i = 0; i < L1_BAND_NUM; i++) {
-            flagCoding.addFlag("F_NEGATIV_BRR_" + (i + 1), BitSetter.setFlag(0, bitIndex), null);
-            bitIndex++;
-        }
-        return flagCoding;
-    }
-
 
     public static class Spi extends OperatorSpi {
 

@@ -25,6 +25,7 @@ public class ScapeMLut {
 
     private double[] visArrayLUT;
     private double[] hsfArrayLUT;
+    private double[] cwvArray;
 
     public ScapeMLut(LookupTable atmParamLut) {
         this.atmParamLut = atmParamLut;
@@ -88,6 +89,10 @@ public class ScapeMLut {
         return cwvMax;
     }
 
+    public double[] getCwvArrayLUT() {
+        return cwvArray;
+    }
+
     public double[] getVisArrayLUT() {
         return visArrayLUT;
     }
@@ -132,7 +137,7 @@ public class ScapeMLut {
     }
 
     private void setCwv() {
-        final double[] cwvArray = atmParamLut.getDimension(5).getSequence();
+        cwvArray = atmParamLut.getDimension(5).getSequence();
         cwvMin = cwvArray[0] + 0.001;
         cwvMax = cwvArray[cwvArray.length - 1] - 0.001;
     }
