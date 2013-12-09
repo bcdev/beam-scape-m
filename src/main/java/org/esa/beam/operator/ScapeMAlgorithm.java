@@ -3,6 +3,7 @@ package org.esa.beam.operator;
 
 import Stats.LinFit;
 import org.apache.commons.math3.analysis.solvers.BrentSolver;
+import org.apache.commons.math3.exception.NoBracketingException;
 import org.esa.beam.ScapeMConstants;
 import org.esa.beam.framework.datamodel.GeoCoding;
 import org.esa.beam.framework.datamodel.GeoPos;
@@ -45,7 +46,8 @@ public class ScapeMAlgorithm implements Constants {
         int countClearLand = 0;
         for (int y = rect.y; y < rect.y + rect.height; y++) {
             for (int x = rect.x; x < rect.x + rect.width; x++) {
-                if (cloudFlags.getSampleBit(x, y, 3)) {   // mask_land_all !!
+                if (!cloudFlags.getSampleBit(x, y, ScapeMConstants.CLOUD_CERTAIN_BIT) &&
+                        !cloudFlags.getSampleBit(x, y, ScapeMConstants.CLOUD_INVALID_BIT)) {   // mask_land_all !!
                     countClearLand++;
                 }
             }
@@ -69,7 +71,8 @@ public class ScapeMAlgorithm implements Constants {
         for (int y = 0; y < hSurfCell[0].length; y++) {
             for (int x = 0; x < hSurfCell.length; x++) {
                 if (!(Double.isNaN(hSurfCell[x][y]))) {
-                    if (cloudFlags.getSampleBit(rect.x + x, rect.y + y, 3)) {   // mask_land_all !!
+                    if (!cloudFlags.getSampleBit(rect.x + x, rect.y + y, ScapeMConstants.CLOUD_CERTAIN_BIT)  &&
+                            !cloudFlags.getSampleBit(rect.x + x, rect.y + y, ScapeMConstants.CLOUD_INVALID_BIT)) {   // mask_land_all !!
                         hsurfMean += hSurfCell[x][y];
                         hsurfCount++;
                     }
@@ -128,7 +131,8 @@ public class ScapeMAlgorithm implements Constants {
         for (int y = 0; y < cosSzaCell[0].length; y++) {
             for (int x = 0; x < cosSzaCell.length; x++) {
                 if (!(Double.isNaN(cosSzaCell[x][y]))) {
-                    if (cloudFlags.getSampleBit(rect.x + x, rect.y + y, 3)) {   // mask_land_all !!
+                    if (!cloudFlags.getSampleBit(rect.x + x, rect.y + y, ScapeMConstants.CLOUD_CERTAIN_BIT)  &&
+                            !cloudFlags.getSampleBit(rect.x + x, rect.y + y, ScapeMConstants.CLOUD_INVALID_BIT)) {   // mask_land_all !!
                         cosSzaMean += cosSzaCell[x][y];
                         cosSzaCount++;
                     }
@@ -236,7 +240,7 @@ public class ScapeMAlgorithm implements Constants {
                 vis = Math.max(vis - step[0], scapeMLut.getVisMin());
             }
             boolean repeat = true;
-            while (((vis + step[i]) < scapeMLut.getVisMax()) && (repeat == true)) {
+            while (((vis + step[i]) < scapeMLut.getVisMax()) && repeat) {
                 vis += step[i];
                 double[][] fInt = LutAccess.interpolAtmParamLut(scapeMLut.getAtmParamLut(), vza, sza, raa, hsurfMeanCell, vis, wvInit);
                 repeat = false;
@@ -471,9 +475,9 @@ public class ScapeMAlgorithm implements Constants {
                 // PowellTestFunction_1 function1 = new PowellTestFunction_1();
                 // double fmin = Powell.fmin(xVector, xi, ftol, function1);
                 double fmin = Powell.fmin(xVector,
-                        xiInput,
-                        ScapeMConstants.POWELL_FTOL,
-                        toaMinimization);
+                                          xiInput,
+                                          ScapeMConstants.POWELL_FTOL,
+                                          toaMinimization);
                 double[] chiSqr = toaMinimization.getChiSquare();
                 double chiSqrMean = ScapeMUtils.getMeanDouble1D(chiSqr);
 
@@ -491,9 +495,9 @@ public class ScapeMAlgorithm implements Constants {
                             toaMinimization.setEmVegIndex(j);
                             toaMinimization.setRhoVeg(ScapeMConstants.RHO_VEG_ALL[j]);
                             fmin = Powell.fmin(xVector,
-                                    xiInput,
-                                    ScapeMConstants.POWELL_FTOL,
-                                    toaMinimization);
+                                               xiInput,
+                                               ScapeMConstants.POWELL_FTOL,
+                                               toaMinimization);
                         }
                     }
                 }
@@ -538,7 +542,7 @@ public class ScapeMAlgorithm implements Constants {
             for (int j = 0; j < toaArray[0][0].length; j++) {
                 for (int k = 12; k <= 13; k++) {
                     final double xterm = Math.PI * (toaArray[k][i][j] - fInt[k][0]) /
-                            (fInt[k][1] * cosSzaArrayCell[i][j] * fInt[k][2]);
+                            (fInt[k][1] * cosSzaArrayCell[i][j] + fInt[k][2]);
                     reflImage[k - 12][i][j] = xterm / (1.0 + fInt[k][4] * xterm);
                 }
                 reflImage[2][i][j] =
@@ -553,9 +557,12 @@ public class ScapeMAlgorithm implements Constants {
 
     public static ScapeMResult computeAcResult(Rectangle rect,
                                                Tile visibilityTile,
+                                               Tile cloudFlagsTile,
+                                               double[][][] toaArrayCell,
                                                double[][] hsurfArray,
                                                double[][] cosSzaArray,
-                                               double[][][] reflImage,
+                                               double cosSzaMeanCell,
+                                               double[][][] reflImg,
                                                Tile radianceTile13,
                                                Tile radianceTile14,
                                                ScapeMLut scapeMLut,
@@ -569,136 +576,149 @@ public class ScapeMAlgorithm implements Constants {
         final int dimVis = scapeMLut.getVisArrayLUT().length;
         final int dimHurf = scapeMLut.getHsfArrayLUT().length;
 
-        ScapeMResult scapeMResult = new ScapeMResult();
+        ScapeMResult scapeMResult = new ScapeMResult(L1_BAND_NUM, rect.width, rect.height);
 
         for (int y = rect.y; y < rect.y + rect.height; y++) {
             for (int x = rect.x; x < rect.x + rect.width; x++) {
 
-                if (x == 30 && y == 0) {
-                    System.out.println("rect = " + rect);
-                }
+                if (!cloudFlagsTile.getSampleBit(x, y, ScapeMConstants.CLOUD_INVALID_BIT) &&
+                        !cloudFlagsTile.getSampleBit(x, y, ScapeMConstants.CLOUD_CERTAIN_BIT)) {
 
-                final double ratioMeris =
-                        radianceTile14.getSampleDouble(x, y) / radianceTile13.getSampleDouble(x, y);
-                final double pix1 = reflImage[1][x - rect.x][y - rect.y];
-                final double pix2 = reflImage[2][x - rect.x][y - rect.y];
-                final double[] reflPix = new double[]{pix1, pix2};
-                final double demPix = hsurfArray[x - rect.x][y - rect.y];
-                final double visPix =
-                        visibilityTile.getSampleDouble(x, y);
+                    final double ratioMeris =
+                            radianceTile14.getSampleDouble(x, y) / radianceTile13.getSampleDouble(x, y);
+                    final double pix1 = reflImg[1][x - rect.x][y - rect.y];
+                    final double pix2 = reflImg[2][x - rect.x][y - rect.y];
+                    final double[] reflPix = new double[]{pix1, pix2};
+                    final double demPix = hsurfArray[x - rect.x][y - rect.y];
+                    final double visPix =
+                            visibilityTile.getSampleDouble(x, y);
 
-                int hsIndex = -1;
-                final double[] hsfArrayLUT = scapeMLut.getHsfArrayLUT();
-                for (int i = 0; i < dimHurf; i++) {
-                    if (demPix > hsfArrayLUT[i]) {
-                        hsIndex = i;
+                    int hsIndex = -1;
+                    final double[] hsfArrayLUT = scapeMLut.getHsfArrayLUT();
+                    for (int i = 0; i < dimHurf; i++) {
+                        if (demPix >= hsfArrayLUT[i]) {
+                            hsIndex = i;
+                        }
                     }
-                }
-                if (hsIndex == -1) {
-                    System.out.println("hsIndex = " + hsIndex);
-                }
-                final double hsP = (demPix - hsfArrayLUT[hsIndex]) /
-                        (hsfArrayLUT[hsIndex - 1] - hsfArrayLUT[hsIndex]);
+                    final double hsP = (demPix - hsfArrayLUT[hsIndex]) /
+                            (hsfArrayLUT[hsIndex + 1] - hsfArrayLUT[hsIndex]);
 
-                int visIndex = -1;
-                final double[] visArrayLUT = scapeMLut.getVisArrayLUT();
-                for (int i = 0; i < dimVis; i++) {
-                    if (visPix > visArrayLUT[i]) {
-                        visIndex = i;
+                    int visIndex = -1;
+                    final double[] visArrayLUT = scapeMLut.getVisArrayLUT();
+                    for (int i = 0; i < dimVis; i++) {
+                        if (visPix >= visArrayLUT[i]) {
+                            visIndex = i;
+                        }
                     }
-                }
-                final double visP = (visPix - visArrayLUT[visIndex]) /
-                        (visArrayLUT[visIndex - 1] - visArrayLUT[visIndex]);
+                    final double visP = (visPix - visArrayLUT[visIndex]) /
+                            (visArrayLUT[visIndex + 1] - visArrayLUT[visIndex]);
 
-                double[][] lpwSp = new double[L1_BAND_NUM][dimWv];
-                for (int bandId = 0; bandId < L1_BAND_NUM; bandId++) {
-                    for (int i = 0; i < dimWv; i++) {
-                        lpwSp[bandId][i] = (1.0 - visP) * (1.0 - hsP) * lpw[bandId][i][visIndex][hsIndex] +
-                                hsP * (1.0 - visP) * lpw[bandId][i][visIndex][hsIndex] +
-                                (1.0 - hsP) * visP * lpw[bandId][i][visIndex + 1][hsIndex] +
-                                visP * hsP * lpw[bandId][i][visIndex + 1][hsIndex + 1];
+                    double[][] lpwSp = new double[L1_BAND_NUM][dimWv];
+                    for (int bandId = 0; bandId < L1_BAND_NUM; bandId++) {
+                        for (int i = 0; i < dimWv; i++) {
+                            lpwSp[bandId][i] = (1.0 - visP) * (1.0 - hsP) * lpw[bandId][i][visIndex][hsIndex] +
+                                    hsP * (1.0 - visP) * lpw[bandId][i][visIndex][hsIndex + 1] +
+                                    (1.0 - hsP) * visP * lpw[bandId][i][visIndex + 1][hsIndex] +
+                                    visP * hsP * lpw[bandId][i][visIndex + 1][hsIndex + 1];
+                        }
+
                     }
 
-                }
+                    // adjust etw:
+                    double[][][][] etw = new double[L1_BAND_NUM][dimWv][dimVis][dimHurf];
+                    final double cosSza = cosSzaArray[x - rect.x][y - rect.y];
+                    for (int bandId = 0; bandId < L1_BAND_NUM; bandId++) {
+                        for (int i = 0; i < scapeMLut.getCwvArrayLUT().length; i++) {
+                            for (int j = 0; j < visArrayLUT.length; j++) {
+                                for (int k = 0; k < hsfArrayLUT.length; k++) {
+                                    // (1.- tdir_d * mus) * mun_term_arr[ind]:
+                                    final double sum1 = (1.0 - tDirD[bandId][i][j][k] * cosSzaMeanCell) * 1.0;
+                                    // tdir_d * mus_il_arr[ind] :
+                                    final double sum2 = tDirD[bandId][i][j][k] * cosSza;
+                                    // e0tw * mus_il_arr[ind] :
+                                    final double sum3 = e0tw[bandId][i][j][k] * cosSza;
 
-                // adjust etw:
-                double[][][][] etw = new double[L1_BAND_NUM][dimWv][dimVis][dimHurf];
-                final double cosSza = cosSzaArray[x - rect.x][y - rect.y];
-                for (int bandId = 0; bandId < L1_BAND_NUM; bandId++) {
-                    for (int i = 0; i < scapeMLut.getCwvArrayLUT().length; i++) {
-                        for (int j = 0; j < visArrayLUT.length; j++) {
-                            for (int k = 0; k < hsfArrayLUT.length; k++) {
-                                // (1.- tdir_d * mus) * mun_term_arr[ind]:
-                                final double sum1 = (1.0 - tDirD[bandId][i][j][k]) * 1.0;
-                                // tdir_d * mus_il_arr[ind] :
-                                final double sum2 = tDirD[bandId][i][j][k] * cosSza;
-                                // e0tw * mus_il_arr[ind] :
-                                final double sum3 = e0tw[bandId][i][j][k] * cosSza;
-
-                                etw[bandId][i][j][k] = sum3 + ediftw[bandId][i][j][k] * (sum2 + sum1);
+                                    etw[bandId][i][j][k] = sum3 + ediftw[bandId][i][j][k] * (sum2 + sum1);
+                                }
                             }
                         }
                     }
-                }
 
-                double[][] etwSp = new double[L1_BAND_NUM][dimWv];
-                double[][] sabSp = new double[L1_BAND_NUM][dimWv];
-                for (int bandId = 0; bandId < L1_BAND_NUM; bandId++) {
-                    for (int i = 0; i < dimWv; i++) {
-                        etwSp[bandId][i] = (1.0 - visP) * (1.0 - hsP) * etw[bandId][i][visIndex][hsIndex] +
-                                hsP * (1.0 - visP) * etw[bandId][i][visIndex][hsIndex] +
-                                (1.0 - hsP) * visP * etw[bandId][i][visIndex + 1][hsIndex] +
-                                visP * hsP * etw[bandId][i][visIndex + 1][hsIndex + 1];
-                        sabSp[bandId][i] = (1.0 - visP) * (1.0 - hsP) * sab[bandId][i][visIndex][hsIndex] +
-                                hsP * (1.0 - visP) * sab[bandId][i][visIndex][hsIndex] +
-                                (1.0 - hsP) * visP * sab[bandId][i][visIndex + 1][hsIndex] +
-                                visP * hsP * sab[bandId][i][visIndex + 1][hsIndex + 1];
+                    double[][] etwSp = new double[L1_BAND_NUM][dimWv];
+                    double[][] sabSp = new double[L1_BAND_NUM][dimWv];
+                    for (int bandId = 0; bandId < L1_BAND_NUM; bandId++) {
+                        for (int i = 0; i < dimWv; i++) {
+                            etwSp[bandId][i] = (1.0 - visP) * (1.0 - hsP) * etw[bandId][i][visIndex][hsIndex] +
+                                    hsP * (1.0 - visP) * etw[bandId][i][visIndex][hsIndex + 1] +
+                                    (1.0 - hsP) * visP * etw[bandId][i][visIndex + 1][hsIndex] +
+                                    visP * hsP * etw[bandId][i][visIndex + 1][hsIndex + 1];
+                            sabSp[bandId][i] = (1.0 - visP) * (1.0 - hsP) * sab[bandId][i][visIndex][hsIndex] +
+                                    hsP * (1.0 - visP) * sab[bandId][i][visIndex][hsIndex + 1] +
+                                    (1.0 - hsP) * visP * sab[bandId][i][visIndex + 1][hsIndex] +
+                                    visP * hsP * sab[bandId][i][visIndex + 1][hsIndex + 1];
+                        }
+
                     }
 
-                }
-
-                double[][][] parAtmH = new double[3][2][dimWv];
-                for (int i = 0; i < 2; i++) {
-                    for (int j = 0; j < dimWv; j++) {
-                        parAtmH[0][i][j] = lpwSp[i + 13][j];
-                        parAtmH[1][i][j] = etwSp[i + 13][j];
-                        parAtmH[2][i][j] = sabSp[i + 13][j];
+                    double[][][] parAtmH = new double[3][2][dimWv];
+                    for (int i = 0; i < 2; i++) {
+                        for (int j = 0; j < dimWv; j++) {
+                            parAtmH[0][i][j] = lpwSp[i + 13][j];
+                            parAtmH[1][i][j] = etwSp[i + 13][j];
+                            parAtmH[2][i][j] = sabSp[i + 13][j];
+                        }
                     }
+
+                    // now water vapour:
+                    // all numbers in this test taken from IDL test run, cellIndexX=1, cellIndexY=0
+                    WaterVapourFunction wvFunction = new WaterVapourFunction();
+                    wvFunction.setMerisRatio(ratioMeris);
+                    wvFunction.setWvGr2(scapeMLut.getCwvArrayLUT());
+                    wvFunction.setParAtmH(parAtmH);
+                    wvFunction.setReflPix(reflPix);
+
+                    final double wvLower = scapeMLut.getCwvArrayLUT()[0] + 0.001;
+                    final double wvUpper = scapeMLut.getCwvArrayLUT()[dimWv - 1] - 0.001;
+
+                    BrentSolver brentSolver = new BrentSolver(ScapeMConstants.FTOL);
+                    double wvResult;
+                    if (x == 480 && y == 0) {
+//                    System.out.println("rect = " + rect);
+                    }
+                    try {
+                        wvResult = brentSolver.solve(ScapeMConstants.MAXITER, wvFunction,
+                                                     wvLower, wvUpper);
+                    } catch (NoBracketingException e) {
+                        wvResult = ScapeMConstants.WV_INIT;
+//                    e.printStackTrace();
+//                        System.out.println("rect, x, y = " + rect + "//" + x + "," + y);
+                    }
+                    scapeMResult.setWvPixel(x - rect.x, y - rect.y, wvResult);
+
+                    double[] lpwAc = new double[L1_BAND_NUM];
+                    double[] etwAc = new double[L1_BAND_NUM];
+                    double[] sabAc = new double[L1_BAND_NUM];
+                    final int wvInf = wvFunction.getWvInf();
+                    final double wvP = wvFunction.getWvP();
+                    for (int i = 0; i < L1_BAND_NUM; i++) {
+                        lpwAc[i] = lpwSp[i][wvInf] + wvP * (lpwSp[i][wvInf + 1] - lpwSp[i][wvInf]);
+                        etwAc[i] = etwSp[i][wvInf] + wvP * (etwSp[i][wvInf + 1] - etwSp[i][wvInf]);
+                        sabAc[i] = sabSp[i][wvInf] + wvP * (sabSp[i][wvInf + 1] - sabSp[i][wvInf]);
+
+                        final double xTerm =
+                                Math.PI * (toaArrayCell[i][x - rect.x][y - rect.y] - lpwAc[i]) / etwAc[i];
+                        final double refl = xTerm / (1.0 + sabAc[i] * xTerm);
+                        scapeMResult.setReflPixel(i, x - rect.x, y - rect.y, refl);
+                    }
+                } else {
+                    // invalid
+                    for (int i = 0; i < L1_BAND_NUM; i++) {
+                        scapeMResult.setReflPixel(i, x - rect.x, y - rect.y, ScapeMConstants.AC_NODATA);
+                    }
+                    scapeMResult.setWvPixel(x - rect.x, y - rect.y, ScapeMConstants.AC_NODATA);
                 }
 
-                // now water vapour:
-                // all numbers in this test taken from IDL test run, cellIndexX=1, cellIndexY=0
-                WaterVapourFunction wvFunction = new WaterVapourFunction();
-                wvFunction.setMerisRatio(ratioMeris);
-                wvFunction.setWvGr2(scapeMLut.getCwvArrayLUT());
-                wvFunction.setParAtmH(parAtmH);
-                wvFunction.setReflPix(reflPix);
-
-                final double wvLower = scapeMLut.getCwvArrayLUT()[0] + 0.001;
-                final double wvUpper = scapeMLut.getCwvArrayLUT()[dimWv] + 0.001;
-
-                BrentSolver brentSolver = new BrentSolver(ScapeMConstants.FTOL);
-                final double wvResult = brentSolver.solve(ScapeMConstants.MAXITER, wvFunction,
-                        wvLower, wvUpper);
-                scapeMResult.setWvPixel(x, y, wvResult);
-
-                double[] lpwAc = new double[L1_BAND_NUM];
-                double[] etwAc = new double[L1_BAND_NUM];
-                double[] sabAc = new double[L1_BAND_NUM];
-                final int wvInf = wvFunction.getWvInf();
-                final double wvP = wvFunction.getWvP();
-                for (int i = 0; i < L1_BAND_NUM; i++) {
-                    lpwAc[i] = lpwSp[i][wvInf] + wvP * (lpwSp[i][wvInf + 1] - lpwSp[i][wvInf]);
-                    etwAc[i] = etwSp[i][wvInf] + wvP * (etwSp[i][wvInf + 1] - etwSp[i][wvInf]);
-                    sabAc[i] = sabSp[i][wvInf] + wvP * (sabSp[i][wvInf + 1] - sabSp[i][wvInf]);
-
-                    final double xTerm =
-                            Math.PI * (reflImage[i][x - rect.x][y - rect.y] - lpwAc[i]) * etwAc[i];
-                    final double refl = xTerm / (1.0 + sabAc[i] * xTerm);
-                    scapeMResult.setReflPixel(i, x, y, refl);
-                }
             }
-
 
         }
         return scapeMResult;

@@ -35,10 +35,10 @@ import java.util.Map;
  * @author Tonio Fincke, Olaf Danne
  */
 @OperatorMetadata(alias = "beam.scapeM.ac", version = "1.0-SNAPSHOT",
-        authors = "Tonio Fincke, Olaf Danne",
-        copyright = "(c) 2013 Brockmann Consult",
-        internal = true,
-        description = "Operator for MERIS atmospheric correction with SCAPE-M algorithm: AC part.")
+                  authors = "Tonio Fincke, Olaf Danne",
+                  copyright = "(c) 2013 Brockmann Consult",
+                  internal = true,
+                  description = "Operator for MERIS atmospheric correction with SCAPE-M algorithm: AC part.")
 public class ScapeMAtmosCorrOp extends MerisBasisOp implements Constants {
 
     @Parameter(description = "DEM name", defaultValue = "GETASSE30")
@@ -104,14 +104,14 @@ public class ScapeMAtmosCorrOp extends MerisBasisOp implements Constants {
         for (int bandId = 0; bandId < L1_BAND_NUM; bandId++) {
             radianceBands[bandId] = sourceProduct.getBand(RADIANCE_BAND_PREFIX + "_" + (bandId + 1));
             radianceTiles[bandId] = getSourceTile(radianceBands[bandId], targetRect);
-            solirr[bandId] = radianceBands[bandId].getSolarFlux() / 1.E-4;
+            solirr[bandId] = radianceBands[bandId].getSolarFlux() * 1.E-4;
         }
 
         Band visibilityBand = visibilityProduct.getBand(ScapeMConstants.VISIBILITY_BAND_NAME);
         Tile visibilityTile = getSourceTile(visibilityBand, targetRect);
 
         final Tile cloudFlagsTile = getSourceTile(cloudProduct.getBand(IdepixUtils.IDEPIX_CLOUD_FLAGS), targetRect,
-                BorderExtender.createInstance(BorderExtender.BORDER_COPY));
+                                                  BorderExtender.createInstance(BorderExtender.BORDER_COPY));
 
         final int centerX = targetRect.x + targetRect.width / 2;
         final int centerY = targetRect.y + targetRect.height / 2;
@@ -129,9 +129,12 @@ public class ScapeMAtmosCorrOp extends MerisBasisOp implements Constants {
             } else {
                 hsurfArrayCell = ScapeMAlgorithm.getHsurfArrayCell(targetRect, geoCoding, elevationModel, scapeMLut);
             }
+            if (targetRect.x == 30 && targetRect.y == 0) {
+//                System.out.println("rect = " + targetRect);
+            }
             final double hsurfMeanCell = ScapeMAlgorithm.getHsurfMeanCell(hsurfArrayCell, cloudFlagsTile);
             final double[][] cosSzaArrayCell = ScapeMAlgorithm.getCosSzaArrayCell(targetRect, szaTile);
-
+            final double cosSzaMeanCell = ScapeMAlgorithm.getCosSzaMeanCell(cosSzaArrayCell, cloudFlagsTile);
 
             final int doy = sourceProduct.getStartTime().getAsCalendar().get(Calendar.DAY_OF_YEAR);
             double[][][] toaArrayCell = new double[L1_BAND_NUM][targetRect.width][targetRect.height];
@@ -155,46 +158,54 @@ public class ScapeMAtmosCorrOp extends MerisBasisOp implements Constants {
                     for (int j = 0; j < dimVis; j++) {
                         for (int k = 0; k < dimHurf; k++) {
                             double[][] fInt = LutAccess.interpolAtmParamLut(scapeMLut.getAtmParamLut(),
-                                    vza, sza, phi,
-                                    scapeMLut.getHsfArrayLUT()[k],
-                                    scapeMLut.getVisArrayLUT()[j],
-                                    scapeMLut.getCwvArrayLUT()[i]);
+                                                                            vza, sza, phi,
+                                                                            scapeMLut.getHsfArrayLUT()[k],
+                                                                            scapeMLut.getVisArrayLUT()[j],
+                                                                            scapeMLut.getCwvArrayLUT()[i]);
                             lpw[bandId][i][j][k] = fInt[bandId][0];
                             e0tw[bandId][i][j][k] = fInt[bandId][1];
                             ediftw[bandId][i][j][k] = fInt[bandId][2];
                             sab[bandId][i][j][k] = fInt[bandId][4];
                             tDirD[bandId][i][j][k] =
-                                    fInt[bandId][1] / (fInt[bandId][5] * (1.0 + fInt[bandId][3] * solirr[bandId]));
+                                    fInt[bandId][1] / (fInt[bandId][5] * (1.0 + fInt[bandId][3]) * solirr[bandId]);
                         }
                     }
                 }
             }
 
-            ScapeMResult acResult = new ScapeMResult();
+            ScapeMResult acResult = null;
             double wvInit = ScapeMConstants.WV_INIT;
             for (int i = 0; i < numWvIterations; i++) {
                 double[][] fInt = LutAccess.interpolAtmParamLut(scapeMLut.getAtmParamLut(),
-                        vza, sza, phi, hsurfMeanCell, ScapeMConstants.VIS_INIT, wvInit);
+                                                                vza, sza, phi, hsurfMeanCell, ScapeMConstants.VIS_INIT, wvInit);
+                if (targetRect.x == 480 && targetRect.y == 0) {
+//                    System.out.println("rect = " + targetRect);
+                }
                 double[][][] reflImage = ScapeMAlgorithm.getReflImage(fInt, toaArrayCell, cosSzaArrayCell);
 
                 acResult = ScapeMAlgorithm.computeAcResult(targetRect,
-                        visibilityTile,
-                        hsurfArrayCell,
-                        cosSzaArrayCell,
-                        reflImage,
-                        radianceTiles[13],
-                        radianceTiles[14],
-                        scapeMLut,
-                        lpw, e0tw, ediftw, tDirD, sab);
+                                                           visibilityTile,
+                                                           cloudFlagsTile,
+                                                           toaArrayCell,
+                                                           hsurfArrayCell,
+                                                           cosSzaArrayCell,
+                                                           cosSzaMeanCell,
+                                                           reflImage,
+                                                           radianceTiles[13],
+                                                           radianceTiles[14],
+                                                           scapeMLut,
+                                                           lpw, e0tw, ediftw, tDirD, sab);
 
                 wvInit = ScapeMUtils.getMeanDouble2D(acResult.getWv());
             }
 
-            for (int bandId = 0; bandId < L1_BAND_NUM; bandId++) {
-                Tile reflTile = reflTiles[bandId];
-                for (int y = targetRect.y; y < targetRect.y + targetRect.height; y++) {
-                    for (int x = targetRect.x; x < targetRect.x + targetRect.width; x++) {
-                        reflTile.setSample(x, y, acResult.getReflPixel(bandId, x, y));
+            Tile wvTile = targetTiles.get(targetProduct.getBand(ScapeMConstants.WATER_VAPOUR_BAND_NAME));
+            for (int y = targetRect.y; y < targetRect.y + targetRect.height; y++) {
+                for (int x = targetRect.x; x < targetRect.x + targetRect.width; x++) {
+                    wvTile.setSample(x, y, acResult.getWvPixel(x - targetRect.x, y - targetRect.y));
+                    for (int bandId = 0; bandId < L1_BAND_NUM; bandId++) {
+                        Tile reflTile = reflTiles[bandId];
+                        reflTile.setSample(x, y, acResult.getReflPixel(bandId, x - targetRect.x, y - targetRect.y));
                     }
                 }
             }
@@ -211,6 +222,10 @@ public class ScapeMAtmosCorrOp extends MerisBasisOp implements Constants {
         ProductUtils.copyFlagBands(sourceProduct, targetProduct, true);
         ProductUtils.copyMasks(sourceProduct, targetProduct);
 
+        Band wvBand = targetProduct.addBand(ScapeMConstants.WATER_VAPOUR_BAND_NAME, ProductData.TYPE_FLOAT32);
+        wvBand.setNoDataValue(ScapeMConstants.WATER_VAPOUR_NODATA_VALUE);
+        wvBand.setValidPixelExpression(ScapeMConstants.SCAPEM_VALID_EXPR);
+
         reflBands = addBandGroup(REFL_BAND_PREFIX);
 
         flagBand = targetProduct.addBand(CORR_FLAGS, ProductData.TYPE_INT16);
@@ -220,10 +235,10 @@ public class ScapeMAtmosCorrOp extends MerisBasisOp implements Constants {
 
         if (sourceProduct.getProductType().contains("_RR")) {
             targetProduct.setPreferredTileSize(ScapeMConstants.RR_PIXELS_PER_CELL,
-                    ScapeMConstants.RR_PIXELS_PER_CELL);
+                                               ScapeMConstants.RR_PIXELS_PER_CELL);
         } else {
             targetProduct.setPreferredTileSize(ScapeMConstants.FR_PIXELS_PER_CELL,
-                    ScapeMConstants.FR_PIXELS_PER_CELL);
+                                               ScapeMConstants.FR_PIXELS_PER_CELL);
         }
     }
 

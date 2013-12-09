@@ -9,6 +9,22 @@ public class ScapeMResult {
     double[][] wv;
     private double[][][] refl;
 
+    public ScapeMResult(int l1BandNum, int width, int height) {
+        refl = new double[l1BandNum][width][height];
+        wv = new double[width][height];
+
+        for (int i = 0; i < l1BandNum; i++) {
+            refl[i] = new double[width][height];
+            for (int j = 0; j < width; j++) {
+                refl[i][j] = new double[height];
+            }
+        }
+
+        for (int j = 0; j < width; j++) {
+            wv[j] = new double[height];
+        }
+    }
+
     public double[][] getWv() {
         return wv;
     }

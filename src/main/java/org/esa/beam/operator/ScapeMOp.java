@@ -42,6 +42,9 @@ public class ScapeMOp extends MerisBasisOp implements Constants {
     @Parameter(description = "CWV processing mode", defaultValue = "SHORT")
     private ScapeMMode cwvMode;
 
+    @Parameter(description = "Compute also over all water", defaultValue = "false")
+    private boolean computeOverWater;
+
     @Parameter(description = "DEM name", defaultValue = "GETASSE30")
     private String demName;
 
