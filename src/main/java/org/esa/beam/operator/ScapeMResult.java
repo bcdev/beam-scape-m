@@ -7,7 +7,6 @@ package org.esa.beam.operator;
  */
 public class ScapeMResult {
     double[][] wv;
-    double wvInf;
     private double[][][] refl;
 
     public double[][] getWv() {
@@ -24,14 +23,6 @@ public class ScapeMResult {
 
     public void setWvPixel(int x, int y, double wvValue) {
         wv[x][y] = wvValue;
-    }
-
-    public double getWvInf() {
-        return wvInf;
-    }
-
-    public void setWvInf(double wvInf) {
-        this.wvInf = wvInf;
     }
 
     public double[][][] getRefl() {

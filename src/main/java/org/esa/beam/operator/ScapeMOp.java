@@ -146,14 +146,14 @@ public class ScapeMOp extends MerisBasisOp implements Constants {
 
         // derive CWV...
         // derive reflectance...
-        atmosCorrProduct = smoothedVisibilityProduct;
+//        atmosCorrProduct = smoothedVisibilityProduct;
         Map<String, Product> atmosCorrInput = new HashMap<String, Product>(4);
         atmosCorrInput.put("source", sourceProduct);
         atmosCorrInput.put("cloud", cloudProduct);
         atmosCorrInput.put("visibility", smoothedVisibilityProduct);
         Map<String, Object> atmosCorrParams = new HashMap<String, Object>(1);
         atmosCorrParams.put("scapeMLut", scapeMLut);
-        aotProduct = GPF.createProduct(OperatorSpi.getOperatorAlias(ScapeMVis2AotOp.class),
+        atmosCorrProduct = GPF.createProduct(OperatorSpi.getOperatorAlias(ScapeMAtmosCorrOp.class),
                 atmosCorrParams, atmosCorrInput);
 
 

@@ -537,9 +537,9 @@ public class ScapeMAlgorithm implements Constants {
         for (int i = 0; i < toaArray[0].length; i++) {
             for (int j = 0; j < toaArray[0][0].length; j++) {
                 for (int k = 12; k <= 13; k++) {
-                    final double xterm = Math.PI * (toaArray[k][i][j] - fInt[0][k]) /
-                            (fInt[1][k] * cosSzaArrayCell[i][j] * fInt[2][k]);
-                    reflImage[k - 12][i][j] = xterm / (1.0 + fInt[4][k] * xterm);
+                    final double xterm = Math.PI * (toaArray[k][i][j] - fInt[k][0]) /
+                            (fInt[k][1] * cosSzaArrayCell[i][j] * fInt[k][2]);
+                    reflImage[k - 12][i][j] = xterm / (1.0 + fInt[k][4] * xterm);
                 }
                 reflImage[2][i][j] =
                         ((reflImage[1][i][j] - reflImage[0][i][j]) * ScapeMConstants.MERIS_WAVELENGTHS[14] +
@@ -573,6 +573,11 @@ public class ScapeMAlgorithm implements Constants {
 
         for (int y = rect.y; y < rect.y + rect.height; y++) {
             for (int x = rect.x; x < rect.x + rect.width; x++) {
+
+                if (x == 30 && y == 0) {
+                    System.out.println("rect = " + rect);
+                }
+
                 final double ratioMeris =
                         radianceTile14.getSampleDouble(x, y) / radianceTile13.getSampleDouble(x, y);
                 final double pix1 = reflImage[1][x - rect.x][y - rect.y];
@@ -580,7 +585,7 @@ public class ScapeMAlgorithm implements Constants {
                 final double[] reflPix = new double[]{pix1, pix2};
                 final double demPix = hsurfArray[x - rect.x][y - rect.y];
                 final double visPix =
-                        visibilityTile.getSampleDouble(x - rect.x, y - rect.y);
+                        visibilityTile.getSampleDouble(x, y);
 
                 int hsIndex = -1;
                 final double[] hsfArrayLUT = scapeMLut.getHsfArrayLUT();
@@ -588,6 +593,9 @@ public class ScapeMAlgorithm implements Constants {
                     if (demPix > hsfArrayLUT[i]) {
                         hsIndex = i;
                     }
+                }
+                if (hsIndex == -1) {
+                    System.out.println("hsIndex = " + hsIndex);
                 }
                 final double hsP = (demPix - hsfArrayLUT[hsIndex]) /
                         (hsfArrayLUT[hsIndex - 1] - hsfArrayLUT[hsIndex]);

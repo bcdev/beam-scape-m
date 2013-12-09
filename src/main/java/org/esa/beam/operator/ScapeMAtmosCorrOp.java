@@ -9,6 +9,7 @@ import org.esa.beam.framework.dataop.dem.ElevationModelDescriptor;
 import org.esa.beam.framework.dataop.dem.ElevationModelRegistry;
 import org.esa.beam.framework.dataop.resamp.Resampling;
 import org.esa.beam.framework.gpf.OperatorException;
+import org.esa.beam.framework.gpf.OperatorSpi;
 import org.esa.beam.framework.gpf.Tile;
 import org.esa.beam.framework.gpf.annotations.OperatorMetadata;
 import org.esa.beam.framework.gpf.annotations.Parameter;
@@ -82,8 +83,7 @@ public class ScapeMAtmosCorrOp extends MerisBasisOp implements Constants {
     }
 
     @Override
-    public void computeTileStack(Map<Band, Tile> targetTiles, Rectangle targetRectangle, ProgressMonitor pm) throws OperatorException {
-        final Rectangle targetRect = targetTiles.get(sourceProduct.getBandAt(0)).getRectangle();
+    public void computeTileStack(Map<Band, Tile> targetTiles, Rectangle targetRect, ProgressMonitor pm) throws OperatorException {
         final GeoCoding geoCoding = sourceProduct.getGeoCoding();
 
         final Tile szaTile = getSourceTile(sourceProduct.getTiePointGrid(EnvisatConstants.MERIS_SUN_ZENITH_DS_NAME), targetRect);
@@ -144,7 +144,7 @@ public class ScapeMAtmosCorrOp extends MerisBasisOp implements Constants {
             final int dimWv = scapeMLut.getCwvArrayLUT().length;
             final int dimVis = scapeMLut.getVisArrayLUT().length;
             final int dimHurf = scapeMLut.getHsfArrayLUT().length;
-            double[][][][] lpw = new double[L1_BAND_NUM][dimWv][dimVis][dimHurf];
+            double[][][][] lpw = new double[L1_BAND_NUM][dimWv][dimVis][dimHurf];     // [15][6][7][3]
             double[][][][] e0tw = new double[L1_BAND_NUM][dimWv][dimVis][dimHurf];
             double[][][][] ediftw = new double[L1_BAND_NUM][dimWv][dimVis][dimHurf];
             double[][][][] sab = new double[L1_BAND_NUM][dimWv][dimVis][dimHurf];
@@ -159,12 +159,12 @@ public class ScapeMAtmosCorrOp extends MerisBasisOp implements Constants {
                                     scapeMLut.getHsfArrayLUT()[k],
                                     scapeMLut.getVisArrayLUT()[j],
                                     scapeMLut.getCwvArrayLUT()[i]);
-                            lpw[bandId][i][j][k] = fInt[0][bandId];
-                            e0tw[bandId][i][j][k] = fInt[1][bandId];
-                            ediftw[bandId][i][j][k] = fInt[2][bandId];
-                            sab[bandId][i][j][k] = fInt[4][bandId];
+                            lpw[bandId][i][j][k] = fInt[bandId][0];
+                            e0tw[bandId][i][j][k] = fInt[bandId][1];
+                            ediftw[bandId][i][j][k] = fInt[bandId][2];
+                            sab[bandId][i][j][k] = fInt[bandId][4];
                             tDirD[bandId][i][j][k] =
-                                    fInt[1][bandId] / (fInt[5][bandId] * (1.0 + fInt[3][bandId] * solirr[bandId]));
+                                    fInt[bandId][1] / (fInt[bandId][5] * (1.0 + fInt[bandId][3] * solirr[bandId]));
                         }
                     }
                 }
@@ -261,6 +261,13 @@ public class ScapeMAtmosCorrOp extends MerisBasisOp implements Constants {
             // todo: continue if needed
         }
         return flagCoding;
+    }
+
+    public static class Spi extends OperatorSpi {
+
+        public Spi() {
+            super(ScapeMAtmosCorrOp.class);
+        }
     }
 
 }
