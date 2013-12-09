@@ -82,8 +82,9 @@ public class ScapeMConstants {
     public static final int CLOUD_INVALID_BIT = 0;
     public static final int CLOUD_CERTAIN_BIT = 1;
     public static final int CLOUD_PRESUMABLY_BIT = 2;
-    public static final double AC_NODATA = -1.0;
+    public static final int CLOUD_OCEAN_BIT = 3;
 
+    public static final double AC_NODATA = -1.0;
     public static final String WATER_VAPOUR_BAND_NAME = "water_vapour";
     public static final double WATER_VAPOUR_NODATA_VALUE = 0.0;
 }

@@ -20,9 +20,7 @@ import org.esa.beam.idepix.util.IdepixUtils;
 import org.esa.beam.io.LutAccess;
 import org.esa.beam.meris.brr.HelperFunctions;
 import org.esa.beam.meris.l2auxdata.Constants;
-import org.esa.beam.util.BitSetter;
-import org.esa.beam.util.ProductUtils;
-import org.esa.beam.util.ScapeMUtils;
+import org.esa.beam.util.*;
 
 import javax.media.jai.BorderExtender;
 import java.awt.*;
@@ -50,6 +48,9 @@ public class ScapeMAtmosCorrOp extends MerisBasisOp implements Constants {
     @Parameter(description = "Number of iterations for WV retrieval", defaultValue = "1")
     private int numWvIterations;
 
+    @Parameter(description = "Compute also over all water", defaultValue = "false")
+    private boolean computeOverWater;
+
     @SourceProduct(alias = "source")
     private Product sourceProduct;
 
@@ -70,6 +71,7 @@ public class ScapeMAtmosCorrOp extends MerisBasisOp implements Constants {
     public static final String RADIANCE_BAND_PREFIX = "radiance";
     public static final String REFL_BAND_PREFIX = "refl";
     public static final String CORR_FLAGS = "scapem_corr_flags";
+    private ClearPixelStrategy clearPixelStrategy;
 
     @Override
     public void initialize() throws OperatorException {
@@ -78,6 +80,12 @@ public class ScapeMAtmosCorrOp extends MerisBasisOp implements Constants {
             throw new OperatorException("DEM not installed: " + demName + ". Please install with Module Manager.");
         }
         elevationModel = demDescriptor.createDem(Resampling.BILINEAR_INTERPOLATION);
+
+        if(computeOverWater) {
+            clearPixelStrategy = new ClearLandAndWaterPixelStrategy(cloudProduct.getBandAt(0));
+        } else {
+            clearPixelStrategy = new ClearLandPixelStrategy(cloudProduct.getBandAt(0));
+        }
 
         createTargetProduct();
     }
@@ -98,6 +106,8 @@ public class ScapeMAtmosCorrOp extends MerisBasisOp implements Constants {
             demTile = getSourceTile(demBand, targetRect);
         }
 
+        clearPixelStrategy.setTile(getSourceTile(cloudProduct.getBandAt(0), targetRect));
+
         Tile[] radianceTiles = new Tile[L1_BAND_NUM];
         Band[] radianceBands = new Band[L1_BAND_NUM];
         double[] solirr = new double[L1_BAND_NUM];
@@ -110,8 +120,8 @@ public class ScapeMAtmosCorrOp extends MerisBasisOp implements Constants {
         Band visibilityBand = visibilityProduct.getBand(ScapeMConstants.VISIBILITY_BAND_NAME);
         Tile visibilityTile = getSourceTile(visibilityBand, targetRect);
 
-        final Tile cloudFlagsTile = getSourceTile(cloudProduct.getBand(IdepixUtils.IDEPIX_CLOUD_FLAGS), targetRect,
-                                                  BorderExtender.createInstance(BorderExtender.BORDER_COPY));
+//        final Tile cloudFlagsTile = getSourceTile(cloudProduct.getBand(IdepixUtils.IDEPIX_CLOUD_FLAGS), targetRect,
+//                                                  BorderExtender.createInstance(BorderExtender.BORDER_COPY));
 
         final int centerX = targetRect.x + targetRect.width / 2;
         final int centerY = targetRect.y + targetRect.height / 2;
@@ -132,9 +142,9 @@ public class ScapeMAtmosCorrOp extends MerisBasisOp implements Constants {
             if (targetRect.x == 30 && targetRect.y == 0) {
 //                System.out.println("rect = " + targetRect);
             }
-            final double hsurfMeanCell = ScapeMAlgorithm.getHsurfMeanCell(hsurfArrayCell, cloudFlagsTile);
+            final double hsurfMeanCell = ScapeMAlgorithm.getHsurfMeanCell(hsurfArrayCell, targetRect, clearPixelStrategy);
             final double[][] cosSzaArrayCell = ScapeMAlgorithm.getCosSzaArrayCell(targetRect, szaTile);
-            final double cosSzaMeanCell = ScapeMAlgorithm.getCosSzaMeanCell(cosSzaArrayCell, cloudFlagsTile);
+            final double cosSzaMeanCell = ScapeMAlgorithm.getCosSzaMeanCell(cosSzaArrayCell, targetRect, clearPixelStrategy);
 
             final int doy = sourceProduct.getStartTime().getAsCalendar().get(Calendar.DAY_OF_YEAR);
             double[][][] toaArrayCell = new double[L1_BAND_NUM][targetRect.width][targetRect.height];
@@ -185,7 +195,7 @@ public class ScapeMAtmosCorrOp extends MerisBasisOp implements Constants {
 
                 acResult = ScapeMAlgorithm.computeAcResult(targetRect,
                                                            visibilityTile,
-                                                           cloudFlagsTile,
+                                                           clearPixelStrategy,
                                                            toaArrayCell,
                                                            hsurfArrayCell,
                                                            cosSzaArrayCell,

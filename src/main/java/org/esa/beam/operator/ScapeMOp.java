@@ -17,8 +17,7 @@ import org.esa.beam.gpf.operators.meris.MerisBasisOp;
 import org.esa.beam.idepix.algorithms.scapem.FubScapeMOp;
 import org.esa.beam.io.LutAccess;
 import org.esa.beam.meris.l2auxdata.Constants;
-import org.esa.beam.util.BitSetter;
-import org.esa.beam.util.ProductUtils;
+import org.esa.beam.util.*;
 
 import java.io.IOException;
 import java.util.HashMap;
@@ -42,7 +41,7 @@ public class ScapeMOp extends MerisBasisOp implements Constants {
     @Parameter(description = "CWV processing mode", defaultValue = "SHORT")
     private ScapeMMode cwvMode;
 
-    @Parameter(description = "Compute also over all water", defaultValue = "false")
+    @Parameter(description = "Compute also over all water", defaultValue = "true")
     private boolean computeOverWater;
 
     @Parameter(description = "DEM name", defaultValue = "GETASSE30")

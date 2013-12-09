@@ -13,10 +13,7 @@ import org.esa.beam.framework.gpf.Tile;
 import org.esa.beam.io.LutAccess;
 import org.esa.beam.math.Powell;
 import org.esa.beam.meris.l2auxdata.Constants;
-import org.esa.beam.util.CellSample;
-import org.esa.beam.util.CellSampleComparator;
-import org.esa.beam.util.ScapeMUtils;
-import org.esa.beam.util.Varsol;
+import org.esa.beam.util.*;
 import org.esa.beam.util.math.MathUtils;
 
 import java.awt.*;
@@ -37,17 +34,16 @@ public class ScapeMAlgorithm implements Constants {
      * // todo describe parameters
      *
      * @param rect       - cell rectangle
-     * @param cloudFlags - cloud flags
+     * @param clearPixelStrategy - clearPixelStrategy
      * @return boolean
      */
     static boolean isCellClearLand(Rectangle rect,
-                                   Tile cloudFlags,
+                                   ClearPixelStrategy clearPixelStrategy,
                                    double percentage) {
         int countClearLand = 0;
         for (int y = rect.y; y < rect.y + rect.height; y++) {
             for (int x = rect.x; x < rect.x + rect.width; x++) {
-                if (!cloudFlags.getSampleBit(x, y, ScapeMConstants.CLOUD_CERTAIN_BIT) &&
-                        !cloudFlags.getSampleBit(x, y, ScapeMConstants.CLOUD_INVALID_BIT)) {   // mask_land_all !!
+                if (clearPixelStrategy.isValid(x, y)) {   // mask_land_all !!
                     countClearLand++;
                 }
             }
@@ -58,21 +54,22 @@ public class ScapeMAlgorithm implements Constants {
     /**
      * Returns the elevation mean value (in km) over all land pixels in a 30x30km cell
      *
+     *
      * @param hSurfCell - hsurf single values
+     * @param clearPixelStrategy
      * @return hsurf cell mean value
      * @throws Exception
      */
     static double getHsurfMeanCell(double[][] hSurfCell,
-                                   Tile cloudFlags) throws Exception {
+                                   Rectangle rectangle,
+                                   ClearPixelStrategy clearPixelStrategy) throws Exception {
 
         double hsurfMean = 0.0;
         int hsurfCount = 0;
-        Rectangle rect = cloudFlags.getRectangle();
         for (int y = 0; y < hSurfCell[0].length; y++) {
             for (int x = 0; x < hSurfCell.length; x++) {
                 if (!(Double.isNaN(hSurfCell[x][y]))) {
-                    if (!cloudFlags.getSampleBit(rect.x + x, rect.y + y, ScapeMConstants.CLOUD_CERTAIN_BIT)  &&
-                            !cloudFlags.getSampleBit(rect.x + x, rect.y + y, ScapeMConstants.CLOUD_INVALID_BIT)) {   // mask_land_all !!
+                    if(clearPixelStrategy.isValid(rectangle.x + x, rectangle.y + y)) {
                         hsurfMean += hSurfCell[x][y];
                         hsurfCount++;
                     }
@@ -123,16 +120,15 @@ public class ScapeMAlgorithm implements Constants {
     }
 
     static double getCosSzaMeanCell(double[][] cosSzaCell,
-                                    Tile cloudFlags) throws Exception {
+                                    Rectangle rect,
+                                    ClearPixelStrategy clearPixelStrategy) throws Exception {
 
         double cosSzaMean = 0.0;
         int cosSzaCount = 0;
-        Rectangle rect = cloudFlags.getRectangle();
         for (int y = 0; y < cosSzaCell[0].length; y++) {
             for (int x = 0; x < cosSzaCell.length; x++) {
                 if (!(Double.isNaN(cosSzaCell[x][y]))) {
-                    if (!cloudFlags.getSampleBit(rect.x + x, rect.y + y, ScapeMConstants.CLOUD_CERTAIN_BIT)  &&
-                            !cloudFlags.getSampleBit(rect.x + x, rect.y + y, ScapeMConstants.CLOUD_INVALID_BIT)) {   // mask_land_all !!
+                    if(clearPixelStrategy.isValid(rect.x + x, rect.y + y)) {
                         cosSzaMean += cosSzaCell[x][y];
                         cosSzaCount++;
                     }
@@ -557,7 +553,7 @@ public class ScapeMAlgorithm implements Constants {
 
     public static ScapeMResult computeAcResult(Rectangle rect,
                                                Tile visibilityTile,
-                                               Tile cloudFlagsTile,
+                                               ClearPixelStrategy clearPixelStrategy,
                                                double[][][] toaArrayCell,
                                                double[][] hsurfArray,
                                                double[][] cosSzaArray,
@@ -581,8 +577,7 @@ public class ScapeMAlgorithm implements Constants {
         for (int y = rect.y; y < rect.y + rect.height; y++) {
             for (int x = rect.x; x < rect.x + rect.width; x++) {
 
-                if (!cloudFlagsTile.getSampleBit(x, y, ScapeMConstants.CLOUD_INVALID_BIT) &&
-                        !cloudFlagsTile.getSampleBit(x, y, ScapeMConstants.CLOUD_CERTAIN_BIT)) {
+                if(clearPixelStrategy.isValid(x, y)) {
 
                     final double ratioMeris =
                             radianceTile14.getSampleDouble(x, y) / radianceTile13.getSampleDouble(x, y);

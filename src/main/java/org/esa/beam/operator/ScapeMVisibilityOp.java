@@ -22,6 +22,9 @@ import org.esa.beam.gpf.operators.meris.MerisBasisOp;
 import org.esa.beam.idepix.util.IdepixUtils;
 import org.esa.beam.meris.brr.HelperFunctions;
 import org.esa.beam.meris.l2auxdata.Constants;
+import org.esa.beam.util.ClearLandAndWaterPixelStrategy;
+import org.esa.beam.util.ClearLandPixelStrategy;
+import org.esa.beam.util.ClearPixelStrategy;
 import org.esa.beam.util.ProductUtils;
 
 import javax.media.jai.BorderExtender;
@@ -46,6 +49,9 @@ public class ScapeMVisibilityOp extends MerisBasisOp implements Constants {
     @Parameter(description = "ScapeM AOT Lookup table")
     private ScapeMLut scapeMLut;
 
+    @Parameter(description = "Compute also over all water", defaultValue = "false")
+    private boolean computeOverWater;
+
     @SourceProduct(alias = "source")
     private Product sourceProduct;
     @SourceProduct(alias = "cloud")
@@ -57,6 +63,7 @@ public class ScapeMVisibilityOp extends MerisBasisOp implements Constants {
     public static final String RADIANCE_BAND_PREFIX = "radiance";
 
     private ElevationModel elevationModel;
+    private ClearPixelStrategy clearPixelStrategy;
 
     @Override
     public void initialize() throws OperatorException {
@@ -65,6 +72,12 @@ public class ScapeMVisibilityOp extends MerisBasisOp implements Constants {
             throw new OperatorException("DEM not installed: " + demName + ". Please install with Module Manager.");
         }
         elevationModel = demDescriptor.createDem(Resampling.BILINEAR_INTERPOLATION);
+
+        if(computeOverWater) {
+            clearPixelStrategy = new ClearLandAndWaterPixelStrategy(cloudProduct.getBandAt(0));
+        } else {
+            clearPixelStrategy = new ClearLandPixelStrategy(cloudProduct.getBandAt(0));
+        }
 
         createTargetProduct();
     }
@@ -96,11 +109,11 @@ public class ScapeMVisibilityOp extends MerisBasisOp implements Constants {
 
         final GeoCoding geoCoding = sourceProduct.getGeoCoding();
 
-        final Tile cloudFlagsTile = getSourceTile(cloudProduct.getBand(IdepixUtils.IDEPIX_CLOUD_FLAGS), targetRect,
-                BorderExtender.createInstance(BorderExtender.BORDER_COPY));
+//        final Tile cloudFlagsTile = getSourceTile(cloudProduct.getBand(IdepixUtils.IDEPIX_CLOUD_FLAGS), targetRect,
+//                BorderExtender.createInstance(BorderExtender.BORDER_COPY));
 
         final boolean cellIsClear35Percent =
-                ScapeMAlgorithm.isCellClearLand(targetRect, cloudFlagsTile, 0.35);
+                ScapeMAlgorithm.isCellClearLand(targetRect, clearPixelStrategy, 0.35);
 
         if (targetRect.x == 30 && targetRect.y == 0) {
 //            System.out.println("targetRect = " + targetRect);
@@ -128,10 +141,10 @@ public class ScapeMVisibilityOp extends MerisBasisOp implements Constants {
                     hsurfArrayCell = ScapeMAlgorithm.getHsurfArrayCell(targetRect, geoCoding, elevationModel, scapeMLut);
                 }
 
-                final double hsurfMeanCell = ScapeMAlgorithm.getHsurfMeanCell(hsurfArrayCell, cloudFlagsTile);
+                final double hsurfMeanCell = ScapeMAlgorithm.getHsurfMeanCell(hsurfArrayCell, targetRect, clearPixelStrategy);
 
                 final double[][] cosSzaArrayCell = ScapeMAlgorithm.getCosSzaArrayCell(targetRect, szaTile);
-                final double cosSzaMeanCell = ScapeMAlgorithm.getCosSzaMeanCell(cosSzaArrayCell, cloudFlagsTile);
+                final double cosSzaMeanCell = ScapeMAlgorithm.getCosSzaMeanCell(cosSzaArrayCell, targetRect, clearPixelStrategy);
 
                 final int doy = sourceProduct.getStartTime().getAsCalendar().get(Calendar.DAY_OF_YEAR);
                 double[][][] toaArrayCell = new double[L1_BAND_NUM][targetRect.width][targetRect.height];
@@ -142,7 +155,7 @@ public class ScapeMVisibilityOp extends MerisBasisOp implements Constants {
 
                 // now get visibility estimate...
                 final boolean cellIsClear45Percent =
-                        ScapeMAlgorithm.isCellClearLand(targetRect, cloudFlagsTile, 0.45);
+                        ScapeMAlgorithm.isCellClearLand(targetRect, clearPixelStrategy, 0.45);
                 final double visibility = ScapeMAlgorithm.getCellVisibility(toaArrayCell,
                         toaMinCell, vza, sza, phi,
                         hsurfArrayCell,
