@@ -37,6 +37,11 @@ public class ScapeMOp extends MerisBasisOp implements Constants {
                defaultValue = "false")
     private boolean computeOverWater;
 
+    @Parameter(description = "If set, use GETASSE30 DEM, otherwise get altitudes from product TPGs",
+               label = "Use GETASSE30 DEM",
+               defaultValue = "false")
+    private boolean useDEM;
+
     @SourceProduct(description = "MERIS L1B product")
     private Product sourceProduct;
 
@@ -83,6 +88,7 @@ public class ScapeMOp extends MerisBasisOp implements Constants {
         Map<String, Object> visParams = new HashMap<String, Object>(1);
         visParams.put("scapeMLut", scapeMLut);
         visParams.put("computeOverWater", computeOverWater);
+        visParams.put("useDEM", useDEM);
         // this is a product with grid resolution, but having equal visibility values over a cell (30x30km)
         // (follows the IDL implementation)
         cellVisibilityProduct = GPF.createProduct(OperatorSpi.getOperatorAlias(ScapeMVisibilityOp.class), visParams, cellVisibilityInput);
@@ -121,6 +127,7 @@ public class ScapeMOp extends MerisBasisOp implements Constants {
         Map<String, Object> atmosCorrParams = new HashMap<String, Object>(1);
         atmosCorrParams.put("scapeMLut", scapeMLut);
         atmosCorrParams.put("computeOverWater", computeOverWater);
+        atmosCorrParams.put("useDEM", useDEM);
         atmosCorrProduct = GPF.createProduct(OperatorSpi.getOperatorAlias(ScapeMAtmosCorrOp.class),
                                              atmosCorrParams, atmosCorrInput);
 

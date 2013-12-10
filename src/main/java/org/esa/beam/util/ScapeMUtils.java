@@ -1,5 +1,13 @@
 package org.esa.beam.util;
 
+import org.esa.beam.framework.datamodel.Band;
+import org.esa.beam.framework.datamodel.Product;
+import org.esa.beam.framework.datamodel.TiePointGrid;
+import org.esa.beam.framework.gpf.OperatorException;
+import org.esa.beam.framework.gpf.Tile;
+
+import java.awt.*;
+
 /**
  * SCAPE-M utility class
  *
@@ -66,4 +74,5 @@ public class ScapeMUtils {
         // todo implement
         return 0;  //To change body of created methods use File | Settings | File Templates.
     }
+
 }

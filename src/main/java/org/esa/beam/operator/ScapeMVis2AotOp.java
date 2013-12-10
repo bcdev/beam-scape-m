@@ -2,10 +2,7 @@ package org.esa.beam.operator;
 
 import com.bc.ceres.core.ProgressMonitor;
 import org.esa.beam.ScapeMConstants;
-import org.esa.beam.framework.datamodel.Band;
-import org.esa.beam.framework.datamodel.GeoCoding;
-import org.esa.beam.framework.datamodel.Product;
-import org.esa.beam.framework.datamodel.ProductData;
+import org.esa.beam.framework.datamodel.*;
 import org.esa.beam.framework.dataop.dem.ElevationModel;
 import org.esa.beam.framework.dataop.dem.ElevationModelDescriptor;
 import org.esa.beam.framework.dataop.dem.ElevationModelRegistry;
@@ -41,8 +38,10 @@ public class ScapeMVis2AotOp extends MerisBasisOp implements Constants {
     @SourceProduct(alias = "visibility")
     private Product visibilityProduct;
 
-    @Parameter(description = "DEM name", defaultValue = "GETASSE30")
-    private String demName;
+    @Parameter(description = "If set, use GETASSE30 DEM, otherwise get altitudes from product TPGs",
+               label = "Use GETASSE30 DEM",
+               defaultValue = "false")
+    private boolean useDEM;
 
     @Parameter(description = "ScapeM AOT Lookup table")
     private ScapeMLut scapeMLut;
@@ -50,16 +49,21 @@ public class ScapeMVis2AotOp extends MerisBasisOp implements Constants {
     @TargetProduct
     private Product targetProduct;
 
+    private String demName = ScapeMConstants.DEFAULT_DEM_NAME;
+
     private ElevationModel elevationModel;
 
     @Override
     public void initialize() throws OperatorException {
 
-        final ElevationModelDescriptor demDescriptor = ElevationModelRegistry.getInstance().getDescriptor(demName);
-        if (demDescriptor == null || !demDescriptor.isDemInstalled()) {
-            throw new OperatorException("DEM not installed: " + demName + ". Please install with Module Manager.");
+        if (useDEM) {
+            final ElevationModelDescriptor demDescriptor = ElevationModelRegistry.getInstance().getDescriptor(demName);
+            if (demDescriptor == null || !demDescriptor.isDemInstalled()) {
+                throw new OperatorException("DEM not installed: " + demName + ". Please install with Module Manager.");
+            }
+            elevationModel = demDescriptor.createDem(Resampling.BILINEAR_INTERPOLATION);
         }
-        elevationModel = demDescriptor.createDem(Resampling.BILINEAR_INTERPOLATION);
+
 
         createTargetProduct();
     }
@@ -70,11 +74,7 @@ public class ScapeMVis2AotOp extends MerisBasisOp implements Constants {
         final Rectangle targetRect = targetTile.getRectangle();
         final GeoCoding geoCoding = sourceProduct.getGeoCoding();
 
-        Tile demTile = null;
-        Band demBand = sourceProduct.getBand("dem_elevation");   // todo: make sure this has been copied to the visibility product!
-        if (demBand != null) {
-            demTile = getSourceTile(demBand, targetRect);
-        }
+        Tile altitudeTile = geAltitudeTile(targetRect);
 
         Band visibilityBand = visibilityProduct.getBand(ScapeMConstants.VISIBILITY_BAND_NAME);
         Tile visibilityTile = getSourceTile(visibilityBand, targetRect);
@@ -82,11 +82,12 @@ public class ScapeMVis2AotOp extends MerisBasisOp implements Constants {
 
         double[][] hsurfArrayCell;
         try {
-            if (demTile != null) {
-                hsurfArrayCell = ScapeMAlgorithm.getHsurfArrayCell(targetRect, geoCoding, demTile, scapeMLut);
-            } else {
+            if (useDEM && altitudeTile == null) {
                 hsurfArrayCell = ScapeMAlgorithm.getHsurfArrayCell(targetRect, geoCoding, elevationModel, scapeMLut);
+            } else {
+                hsurfArrayCell = ScapeMAlgorithm.getHsurfArrayCell(targetRect, geoCoding, altitudeTile, scapeMLut);
             }
+
             for (int y = targetRect.y; y < targetRect.y + targetRect.height; y++) {
                 for (int x = targetRect.x; x < targetRect.x + targetRect.width; x++) {
                     final double visibility = visibilityTile.getSampleDouble(x, y);
@@ -125,6 +126,34 @@ public class ScapeMVis2AotOp extends MerisBasisOp implements Constants {
             targetProduct.setPreferredTileSize(ScapeMConstants.FR_PIXELS_PER_CELL, ScapeMConstants.FR_PIXELS_PER_CELL);
         }
     }
+
+    private Tile geAltitudeTile(Rectangle targetRect) {
+        Tile demTile = null;
+        Band demBand = null;
+        if (useDEM) {
+            demBand = sourceProduct.getBand("dem_elevation");
+            if (demBand != null) {
+                demTile = getSourceTile(demBand, targetRect);
+            }
+        } else {
+            Band frAltitudeBand = sourceProduct.getBand("altitude");
+            if (frAltitudeBand != null) {
+                // FR, FSG
+                demTile = getSourceTile(frAltitudeBand, targetRect);
+            } else {
+                // RR
+                TiePointGrid rrAltitudeTpg = sourceProduct.getTiePointGrid("dem_alt");
+                if (rrAltitudeTpg != null) {
+                    demTile = getSourceTile(rrAltitudeTpg, targetRect);
+                } else {
+                    throw new OperatorException
+                            ("Cannot attach altitude information from given input and configuration - please check!");
+                }
+            }
+        }
+        return demTile;
+    }
+
 
     public static class Spi extends OperatorSpi {
 

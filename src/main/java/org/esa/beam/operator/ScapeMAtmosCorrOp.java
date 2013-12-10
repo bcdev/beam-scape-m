@@ -39,6 +39,8 @@ import java.util.Map;
                   description = "Operator for MERIS atmospheric correction with SCAPE-M algorithm: AC part.")
 public class ScapeMAtmosCorrOp extends MerisBasisOp implements Constants {
 
+    // todo: maybe write abstract operator to combine this AC op with visibility op and get rid of duplicated code
+
     @Parameter(description = "ScapeM AOT Lookup table")
     private ScapeMLut scapeMLut;
 
@@ -49,6 +51,11 @@ public class ScapeMAtmosCorrOp extends MerisBasisOp implements Constants {
                label = "Compute over all water (not just over lakes)",
                defaultValue = "false")
     private boolean computeOverWater;
+
+    @Parameter(description = "If set, use GETASSE30 DEM, otherwise get altitudes from product TPGs",
+               label = "Use GETASSE30 DEM",
+               defaultValue = "false")
+    private boolean useDEM;
 
     @SourceProduct(alias = "source")
     private Product sourceProduct;
@@ -75,11 +82,13 @@ public class ScapeMAtmosCorrOp extends MerisBasisOp implements Constants {
 
     @Override
     public void initialize() throws OperatorException {
-        final ElevationModelDescriptor demDescriptor = ElevationModelRegistry.getInstance().getDescriptor(demName);
-        if (demDescriptor == null || !demDescriptor.isDemInstalled()) {
-            throw new OperatorException("DEM not installed: " + demName + ". Please install with Module Manager.");
+        if (useDEM) {
+            final ElevationModelDescriptor demDescriptor = ElevationModelRegistry.getInstance().getDescriptor(demName);
+            if (demDescriptor == null || !demDescriptor.isDemInstalled()) {
+                throw new OperatorException("DEM not installed: " + demName + ". Please install with Module Manager.");
+            }
+            elevationModel = demDescriptor.createDem(Resampling.BILINEAR_INTERPOLATION);
         }
-        elevationModel = demDescriptor.createDem(Resampling.BILINEAR_INTERPOLATION);
 
         createTargetProduct();
     }
@@ -93,12 +102,7 @@ public class ScapeMAtmosCorrOp extends MerisBasisOp implements Constants {
         final Tile saaTile = getSourceTile(sourceProduct.getTiePointGrid(EnvisatConstants.MERIS_SUN_AZIMUTH_DS_NAME), targetRect);
         final Tile vaaTile = getSourceTile(sourceProduct.getTiePointGrid(EnvisatConstants.MERIS_VIEW_AZIMUTH_DS_NAME), targetRect);
 
-
-        Tile demTile = null;
-        Band demBand = sourceProduct.getBand("dem_elevation");
-        if (demBand != null) {
-            demTile = getSourceTile(demBand, targetRect);
-        }
+        Tile altitudeTile = geAltitudeTile(targetRect);
 
         ClearPixelStrategy clearPixelStrategy;
         if(computeOverWater) {
@@ -131,10 +135,10 @@ public class ScapeMAtmosCorrOp extends MerisBasisOp implements Constants {
 
         double[][] hsurfArrayCell;
         try {
-            if (demTile != null) {
-                hsurfArrayCell = ScapeMAlgorithm.getHsurfArrayCell(targetRect, geoCoding, demTile, scapeMLut);
-            } else {
+            if (useDEM && altitudeTile == null) {
                 hsurfArrayCell = ScapeMAlgorithm.getHsurfArrayCell(targetRect, geoCoding, elevationModel, scapeMLut);
+            } else {
+                hsurfArrayCell = ScapeMAlgorithm.getHsurfArrayCell(targetRect, geoCoding, altitudeTile, scapeMLut);
             }
 
             final double hsurfMeanCell = ScapeMAlgorithm.getHsurfMeanCell(hsurfArrayCell, targetRect, clearPixelStrategy);
@@ -275,7 +279,7 @@ public class ScapeMAtmosCorrOp extends MerisBasisOp implements Constants {
     }
 
     // todo: check if needed
-    public static FlagCoding createFlagCoding() {
+    private static FlagCoding createFlagCoding() {
         FlagCoding flagCoding = new FlagCoding(CORR_FLAGS);
         int bitIndex = 0;
         for (int i = 0; i < L1_BAND_NUM; i++) {
@@ -285,6 +289,34 @@ public class ScapeMAtmosCorrOp extends MerisBasisOp implements Constants {
         }
         return flagCoding;
     }
+
+    private Tile geAltitudeTile(Rectangle targetRect) {
+        Tile demTile = null;
+        Band demBand = null;
+        if (useDEM) {
+            demBand = sourceProduct.getBand("dem_elevation");
+            if (demBand != null) {
+                demTile = getSourceTile(demBand, targetRect);
+            }
+        } else {
+            Band frAltitudeBand = sourceProduct.getBand("altitude");
+            if (frAltitudeBand != null) {
+                // FR, FSG
+                demTile = getSourceTile(frAltitudeBand, targetRect);
+            } else {
+                // RR
+                TiePointGrid rrAltitudeTpg = sourceProduct.getTiePointGrid("dem_alt");
+                if (rrAltitudeTpg != null) {
+                    demTile = getSourceTile(rrAltitudeTpg, targetRect);
+                } else {
+                    throw new OperatorException
+                            ("Cannot attach altitude information from given input and configuration - please check!");
+                }
+            }
+        }
+        return demTile;
+    }
+
 
     public static class Spi extends OperatorSpi {
 
