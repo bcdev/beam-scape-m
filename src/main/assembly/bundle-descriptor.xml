@@ -1,0 +1,139 @@
+<bundleDescriptor>
+    <bundleName>beam-scape-m</bundleName>
+    <bundleVersion>${pom.version}</bundleVersion>
+
+    <processorDescriptors>
+
+        <processorDescriptor>
+            <executableName>beam.scapeM</executableName>
+            <processorName>SCAPE-M</processorName>
+            <processorVersion>${pom.version}</processorVersion>
+            <defaultParameters><![CDATA[<parameters>
+    <!-- ***********Scape-M Parameters start here*********** -->
+
+     <!-- Whether to compute over all water (not just over lakes) -->
+     <computeOverWater>false</computeOverWater>
+
+
+
+</parameters>]]></defaultParameters>
+            <outputFormats>Multi-GeoTIFF,BEAM-DIMAP,NetCDF</outputFormats>
+            <descriptionHtml>
+                <![CDATA[<p>Performs Scape-M atmospheric correction.</p>]]>
+            </descriptionHtml>
+            <inputProductTypes>MERIS_L1B</inputProductTypes>
+            <outputProductType>SCAPEM_L2</outputProductType>
+            <validMaskExpression>!l1b_flags.INVALID</validMaskExpression>
+
+            <jobConfig>
+                <jobParameter>
+                    <name>calvalus.hadoop.mapred.child.java.opts</name>
+                    <value>-Xmx1500M</value>
+                </jobParameter>
+
+                <jobParameter>
+                    <name>calvalus.system.beam.envisat.usePixelGeoCoding</name>
+                    <value>true</value>
+                </jobParameter>
+                <jobParameter>
+                    <name>calvalus.system.beam.pixelGeoCoding.fractionAccuracy</name>
+                    <value>true</value>
+                </jobParameter>
+
+                <jobParameter>
+                    <name>calvalus.output.compression</name>
+                    <value>NONE</value>
+                </jobParameter>
+            </jobConfig>
+
+            <outputVariables>
+                <outputVariable>
+                    <name>refl_1</name>
+                    <defaultAggregator>AVG</defaultAggregator>
+                    <defaultWeightCoeff>1.0</defaultWeightCoeff>
+                </outputVariable>
+                <outputVariable>
+                    <name>refl_2</name>
+                    <defaultAggregator>AVG</defaultAggregator>
+                    <defaultWeightCoeff>1.0</defaultWeightCoeff>
+                </outputVariable>
+                <outputVariable>
+                    <name>refl_3</name>
+                    <defaultAggregator>AVG</defaultAggregator>
+                    <defaultWeightCoeff>1.0</defaultWeightCoeff>
+                </outputVariable>
+                <outputVariable>
+                    <name>refl_4</name>
+                    <defaultAggregator>AVG</defaultAggregator>
+                    <defaultWeightCoeff>1.0</defaultWeightCoeff>
+                </outputVariable>
+                <outputVariable>
+                    <name>refl_5</name>
+                    <defaultAggregator>AVG</defaultAggregator>
+                    <defaultWeightCoeff>1.0</defaultWeightCoeff>
+                </outputVariable>
+                <outputVariable>
+                    <name>refl_6</name>
+                    <defaultAggregator>AVG</defaultAggregator>
+                    <defaultWeightCoeff>1.0</defaultWeightCoeff>
+                </outputVariable>
+                <outputVariable>
+                    <name>refl_7</name>
+                    <defaultAggregator>AVG</defaultAggregator>
+                    <defaultWeightCoeff>1.0</defaultWeightCoeff>
+                </outputVariable>
+                <outputVariable>
+                    <name>refl_8</name>
+                    <defaultAggregator>AVG</defaultAggregator>
+                    <defaultWeightCoeff>1.0</defaultWeightCoeff>
+                </outputVariable>
+                <outputVariable>
+                    <name>refl_9</name>
+                    <defaultAggregator>AVG</defaultAggregator>
+                    <defaultWeightCoeff>1.0</defaultWeightCoeff>
+                </outputVariable>
+                <outputVariable>
+                    <name>refl_10</name>
+                    <defaultAggregator>AVG</defaultAggregator>
+                    <defaultWeightCoeff>1.0</defaultWeightCoeff>
+                </outputVariable>
+                <outputVariable>
+                    <name>refl_12</name>
+                    <defaultAggregator>AVG</defaultAggregator>
+                    <defaultWeightCoeff>1.0</defaultWeightCoeff>
+                </outputVariable>
+                <outputVariable>
+                    <name>refl_13</name>
+                    <defaultAggregator>AVG</defaultAggregator>
+                    <defaultWeightCoeff>1.0</defaultWeightCoeff>
+                </outputVariable>
+                <outputVariable>
+                    <name>refl_14</name>
+                    <defaultAggregator>AVG</defaultAggregator>
+                    <defaultWeightCoeff>1.0</defaultWeightCoeff>
+                </outputVariable>
+
+                <outputVariable>
+                    <name>water_vapour</name>
+                    <defaultAggregator>AVG</defaultAggregator>
+                    <defaultWeightCoeff>1.0</defaultWeightCoeff>
+                </outputVariable>
+                <outputVariable>
+                    <name>AOT_550</name>
+                    <defaultAggregator>AVG</defaultAggregator>
+                    <defaultWeightCoeff>1.0</defaultWeightCoeff>
+                </outputVariable>
+
+                <outputVariable>
+                    <name>l1_flags</name>
+                </outputVariable>
+                <outputVariable>
+                    <name>cloud_classif_flags</name>
+                </outputVariable>
+            </outputVariables>
+
+        </processorDescriptor>
+
+    </processorDescriptors>
+
+</bundleDescriptor>

@@ -1,9 +1,6 @@
 package org.esa.beam.operator;
 
 import org.esa.beam.ScapeMConstants;
-import org.esa.beam.ScapeMMode;
-import org.esa.beam.framework.datamodel.Band;
-import org.esa.beam.framework.datamodel.FlagCoding;
 import org.esa.beam.framework.datamodel.Product;
 import org.esa.beam.framework.datamodel.ProductData;
 import org.esa.beam.framework.gpf.GPF;
@@ -17,7 +14,7 @@ import org.esa.beam.gpf.operators.meris.MerisBasisOp;
 import org.esa.beam.idepix.algorithms.scapem.FubScapeMOp;
 import org.esa.beam.io.LutAccess;
 import org.esa.beam.meris.l2auxdata.Constants;
-import org.esa.beam.util.*;
+import org.esa.beam.util.ProductUtils;
 
 import java.io.IOException;
 import java.util.HashMap;
@@ -29,23 +26,16 @@ import java.util.Map;
  * @author Tonio Fincke, Olaf Danne
  */
 @OperatorMetadata(alias = "beam.scapeM", version = "1.0-SNAPSHOT",
-        authors = "Tonio Fincke, Olaf Danne",
-        copyright = "(c) 2013 Brockmann Consult",
-        description = "Operator for MERIS atmospheric correction with SCAPE-M algorithm.")
+                  authors = "Tonio Fincke, Olaf Danne",
+                  copyright = "(c) 2013 Brockmann Consult",
+                  description = "Operator for MERIS atmospheric correction with SCAPE-M algorithm.")
 public class ScapeMOp extends MerisBasisOp implements Constants {
     public static final String VERSION = "1.0-SNAPSHOT";
 
-    @Parameter(description = "AOT processing mode", defaultValue = "SHORT")
-    private ScapeMMode aotMode;
-
-    @Parameter(description = "CWV processing mode", defaultValue = "SHORT")
-    private ScapeMMode cwvMode;
-
-    @Parameter(description = "Compute also over all water", defaultValue = "true")
+    @Parameter(description = "Compute over all water (not just over lakes)",
+               label = "Compute over all water (not just over lakes)",
+               defaultValue = "false")
     private boolean computeOverWater;
-
-    @Parameter(description = "DEM name", defaultValue = "GETASSE30")
-    private String demName;
 
     @SourceProduct(description = "MERIS L1B product")
     private Product sourceProduct;
@@ -54,6 +44,8 @@ public class ScapeMOp extends MerisBasisOp implements Constants {
     private Product targetProduct;
 
     protected ScapeMLut scapeMLut;
+
+    private String demName = ScapeMConstants.DEFAULT_DEM_NAME;
 
     private Product cloudProduct;
     private Product cellVisibilityProduct;
@@ -65,34 +57,6 @@ public class ScapeMOp extends MerisBasisOp implements Constants {
 
     @Override
     public void initialize() throws OperatorException {
-
-        // transform IDL procedure 'derive_AtmPar_Refl' to Java...:
-
-        // 1. AOT retrieval on 30x30km cells:
-        //      - set 30x30km cell grid. residuals in last column/row are filled to previous cells,
-        //          so cell indices should be e.g. like this for y dim in case of SCENE_HEIGHT=305 (same for x dim):
-        //          IDL> PRINT, y_end_arr
-        //                  29          59          89         119         149
-        //                  179         209         239         269         304
-        //      - apply 'cloud mask 2' over all pixels in cell
-        //      - consider only cells with more than 35% cloud-free land pixels
-        //      - compute VISIBILITY for those cells  (--> 'interpol_lut')
-        //      - refinement of AOT retrieval:
-        //          ** in given cell, consider only land pixels defined from 'cloud mask 1'
-        //          ** from these, determine 5 'reference pixels' ( --> 'extract_ref_pixels')
-        //             and derive visibility for cell from them ( --> 'inversion_MERIS_AOT')
-        //      - fill gaps (<35% land): interpolate from surrounding cells ( --> 'fill_gaps_vis_new')
-        //      - spatial smoothing by cubic convolution
-        //      - conversion visibility --> AOT550
-
-        // 2. CWV retrieval:
-        //      - minimise 'Merit' function with Brent method ( --> 'ZBRENT', 'chisq_merisWV')
-        //
-        // 3. Reflectance retrieval:
-        //      - from LUT (--> 'interpol_lut' called from  'derive_AtmPar_Refl'), but using
-        //        different approach for bands 2, 11, 15 (see paper)
-        //
-
         readAuxdata();
 
         try {
@@ -103,7 +67,7 @@ public class ScapeMOp extends MerisBasisOp implements Constants {
                 //                int year = sourceProduct.getName()... // todo continue
             }
         } catch (Exception e) {
-            throw new OperatorException("could not load L2Auxdata", e);
+            throw new OperatorException("could not add missing product start/end times: ", e);
         }
 
         // get the cloud product from Idepix...
@@ -118,6 +82,7 @@ public class ScapeMOp extends MerisBasisOp implements Constants {
         cellVisibilityInput.put("cloud", cloudProduct);
         Map<String, Object> visParams = new HashMap<String, Object>(1);
         visParams.put("scapeMLut", scapeMLut);
+        visParams.put("computeOverWater", computeOverWater);
         // this is a product with grid resolution, but having equal visibility values over a cell (30x30km)
         // (follows the IDL implementation)
         cellVisibilityProduct = GPF.createProduct(OperatorSpi.getOperatorAlias(ScapeMVisibilityOp.class), visParams, cellVisibilityInput);
@@ -144,7 +109,7 @@ public class ScapeMOp extends MerisBasisOp implements Constants {
         Map<String, Object> aotConvertParams = new HashMap<String, Object>(1);
         aotConvertParams.put("scapeMLut", scapeMLut);
         aotProduct = GPF.createProduct(OperatorSpi.getOperatorAlias(ScapeMVis2AotOp.class),
-                aotConvertParams, aotConvertInput);
+                                       aotConvertParams, aotConvertInput);
 
         // derive CWV...
         // derive reflectance...
@@ -155,9 +120,9 @@ public class ScapeMOp extends MerisBasisOp implements Constants {
         atmosCorrInput.put("visibility", smoothedVisibilityProduct);
         Map<String, Object> atmosCorrParams = new HashMap<String, Object>(1);
         atmosCorrParams.put("scapeMLut", scapeMLut);
+        atmosCorrParams.put("computeOverWater", computeOverWater);
         atmosCorrProduct = GPF.createProduct(OperatorSpi.getOperatorAlias(ScapeMAtmosCorrOp.class),
-                atmosCorrParams, atmosCorrInput);
-
+                                             atmosCorrParams, atmosCorrInput);
 
         targetProduct = atmosCorrProduct;
         ProductUtils.copyFlagBands(cloudProduct, targetProduct, true);

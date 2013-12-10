@@ -26,7 +26,7 @@ public class ClearLandPixelStrategy implements ClearPixelStrategy{
 
     @Override
     public boolean isValid(int x, int y) {
-        int sampleInt = cloudFlagsBand.getSampleInt(x, y);
+        int sampleInt = tile.getSampleInt(x, y);
         boolean isInvalid = BitSetter.isFlagSet(sampleInt, ScapeMConstants.CLOUD_INVALID_BIT);
         boolean isCloud = BitSetter.isFlagSet(sampleInt, ScapeMConstants.CLOUD_CERTAIN_BIT);
         boolean isOcean = BitSetter.isFlagSet(sampleInt, ScapeMConstants.CLOUD_OCEAN_BIT);

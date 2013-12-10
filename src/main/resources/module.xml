@@ -1,7 +1,7 @@
 <module>
     <manifestVersion>1.0.0</manifestVersion>
     <symbolicName>beam-scape-m</symbolicName>
-    <version>1.0</version>
+    <version>1.0-SNAPSHOT</version>
     <name>SCAPE-M</name>
 
     <description>
@@ -26,24 +26,23 @@
     </changelog>
 
     <dependency>
-        <module>beam-gpf</module>
+        <module>beam-idepix-algorithms</module>
     </dependency>
     <dependency>
-        <module>beam-netcdf</module>
+        <module>beam-idepix-core</module>
     </dependency>
     <dependency>
-        <module>beam-visat-rcp</module>
-        <optional>true</optional>
+        <module>beam-idepix-operators</module>
     </dependency>
-   
+
     <categories>Processor</categories>
 
     <extension point="beam-ui:actions">
         <action>
             <id>correctAtmosphereScapeM</id>
-            <class>org.esa.beam.operator.ui.ScapeMAction</class>
+            <class>org.esa.beam.ui.ScapeMAction</class>
             <text>SCAPE-M Atmospheric Correction (MERIS)...</text>
-            <shortDescr>SCAPE-M AC.</shortDescr>
+            <shortDescr>SCAPE-M AC</shortDescr>
             <longDescr>Provides MERIS atmospheric correction with SCAPE-M algorithm.</longDescr>
             <mnemonic/>
             <parent>tools</parent>

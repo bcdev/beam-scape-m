@@ -1,8 +1,9 @@
 package org.esa.beam.util;
 
 import org.esa.beam.framework.datamodel.Band;
-import org.esa.beam.framework.datamodel.Product;
 import org.esa.beam.framework.datamodel.ProductData;
+import org.esa.beam.framework.gpf.Tile;
+import org.esa.beam.framework.gpf.internal.TileImpl;
 import org.esa.beam.jai.ResolutionLevel;
 import org.esa.beam.jai.SingleBandedOpImage;
 import org.junit.Test;
@@ -38,6 +39,9 @@ public class ClearPixelStrategyTest {
                 true, false, false, false, true, false, false, false};
 
         int count = 0;
+        Tile bitTile = new TileImpl(bitBand, bitBand.getSourceImage().getData());
+        onlyLandStrategy.setTile(bitTile);
+        landAndWaterStrategy.setTile(bitTile);
         for(int y = 0; y < bitBand.getSceneRasterHeight(); y++) {
             for(int x = 0; x < bitBand.getSceneRasterWidth(); x++) {
                 boolean valid = onlyLandStrategy.isValid(x, y);

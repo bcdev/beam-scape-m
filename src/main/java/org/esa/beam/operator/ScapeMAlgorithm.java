@@ -2,6 +2,7 @@ package org.esa.beam.operator;
 
 
 import Stats.LinFit;
+import com.bc.ceres.core.ProgressMonitor;
 import org.apache.commons.math3.analysis.solvers.BrentSolver;
 import org.apache.commons.math3.exception.NoBracketingException;
 import org.esa.beam.ScapeMConstants;
@@ -33,7 +34,7 @@ public class ScapeMAlgorithm implements Constants {
      * <p/>
      * // todo describe parameters
      *
-     * @param rect       - cell rectangle
+     * @param rect               - cell rectangle
      * @param clearPixelStrategy - clearPixelStrategy
      * @return boolean
      */
@@ -54,8 +55,7 @@ public class ScapeMAlgorithm implements Constants {
     /**
      * Returns the elevation mean value (in km) over all land pixels in a 30x30km cell
      *
-     *
-     * @param hSurfCell - hsurf single values
+     * @param hSurfCell          - hsurf single values
      * @param clearPixelStrategy
      * @return hsurf cell mean value
      * @throws Exception
@@ -69,7 +69,7 @@ public class ScapeMAlgorithm implements Constants {
         for (int y = 0; y < hSurfCell[0].length; y++) {
             for (int x = 0; x < hSurfCell.length; x++) {
                 if (!(Double.isNaN(hSurfCell[x][y]))) {
-                    if(clearPixelStrategy.isValid(rectangle.x + x, rectangle.y + y)) {
+                    if (clearPixelStrategy.isValid(rectangle.x + x, rectangle.y + y)) {
                         hsurfMean += hSurfCell[x][y];
                         hsurfCount++;
                     }
@@ -94,6 +94,8 @@ public class ScapeMAlgorithm implements Constants {
                 } else {
                     hSurf[x - rect.x][y - rect.y] = scapeMLut.getHsfMin();
                 }
+                hSurf[x - rect.x][y - rect.y] =
+                        Math.max(scapeMLut.getHsfMin(), Math.min(scapeMLut.getHsfMax(), hSurf[x - rect.x][y - rect.y]));
             }
         }
         return hSurf;
@@ -110,13 +112,38 @@ public class ScapeMAlgorithm implements Constants {
                 GeoPos geoPos = null;
                 if (geoCoding.canGetGeoPos()) {
                     geoPos = geoCoding.getGeoPos(new PixelPos(x, y), geoPos);
-                    hSurf[x - rect.x][y - rect.y] = Math.max(scapeMLut.getHsfMin(), 0.001 * elevationModel.getElevation(geoPos));
+                    hSurf[x - rect.x][y - rect.y] = 0.001 * elevationModel.getElevation(geoPos);
                 } else {
                     hSurf[x - rect.x][y - rect.y] = scapeMLut.getHsfMin();
                 }
+                hSurf[x - rect.x][y - rect.y] =
+                        Math.max(scapeMLut.getHsfMin(), Math.min(scapeMLut.getHsfMax(), hSurf[x - rect.x][y - rect.y]));
             }
         }
         return hSurf;
+    }
+
+    static double getCosSzaMeanCell(double[][] cosSzaCell,
+                                    Tile cloudFlags, boolean computeOverWater) throws Exception {
+
+        double cosSzaMean = 0.0;
+        int cosSzaCount = 0;
+        Rectangle rect = cloudFlags.getRectangle();
+        for (int y = 0; y < cosSzaCell[0].length; y++) {
+            for (int x = 0; x < cosSzaCell.length; x++) {
+                if (!(Double.isNaN(cosSzaCell[x][y]))) {
+                    final boolean considerWater =
+                            (computeOverWater || !cloudFlags.getSampleBit(rect.x + x, rect.y + y, ScapeMConstants.CLOUD_OCEAN_BIT));
+                    if (!cloudFlags.getSampleBit(rect.x + x, rect.y + y, ScapeMConstants.CLOUD_INVALID_BIT) &&
+                            !cloudFlags.getSampleBit(rect.x + x, rect.y + y, ScapeMConstants.CLOUD_CERTAIN_BIT) && considerWater) {
+                        cosSzaMean += cosSzaCell[x][y];
+                        cosSzaCount++;
+                    }
+                }
+            }
+        }
+
+        return cosSzaMean / cosSzaCount;
     }
 
     static double getCosSzaMeanCell(double[][] cosSzaCell,
@@ -274,6 +301,8 @@ public class ScapeMAlgorithm implements Constants {
         } else {
             // nothing to do - keep visVal as it was before
         }
+
+        visVal = Math.max(scapeMLut.getVisMin(), Math.min(scapeMLut.getVisMax(), visVal));
 
         return visVal;
     }
@@ -553,7 +582,9 @@ public class ScapeMAlgorithm implements Constants {
 
     public static ScapeMResult computeAcResult(Rectangle rect,
                                                Tile visibilityTile,
+//                                               Tile cloudFlagsTile,
                                                ClearPixelStrategy clearPixelStrategy,
+                                               boolean computeOverWater,
                                                double[][][] toaArrayCell,
                                                double[][] hsurfArray,
                                                double[][] cosSzaArray,
@@ -577,16 +608,15 @@ public class ScapeMAlgorithm implements Constants {
         for (int y = rect.y; y < rect.y + rect.height; y++) {
             for (int x = rect.x; x < rect.x + rect.width; x++) {
 
-                if(clearPixelStrategy.isValid(x, y)) {
+                final double pix1 = reflImg[1][x - rect.x][y - rect.y];
+                final double pix2 = reflImg[2][x - rect.x][y - rect.y];
+                final double demPix = hsurfArray[x - rect.x][y - rect.y];
+                final double visPix = visibilityTile.getSampleDouble(x, y);
 
+                if (clearPixelStrategy.isValid(x, y)) {
                     final double ratioMeris =
                             radianceTile14.getSampleDouble(x, y) / radianceTile13.getSampleDouble(x, y);
-                    final double pix1 = reflImg[1][x - rect.x][y - rect.y];
-                    final double pix2 = reflImg[2][x - rect.x][y - rect.y];
                     final double[] reflPix = new double[]{pix1, pix2};
-                    final double demPix = hsurfArray[x - rect.x][y - rect.y];
-                    final double visPix =
-                            visibilityTile.getSampleDouble(x, y);
 
                     int hsIndex = -1;
                     final double[] hsfArrayLUT = scapeMLut.getHsfArrayLUT();
@@ -672,8 +702,8 @@ public class ScapeMAlgorithm implements Constants {
                     wvFunction.setParAtmH(parAtmH);
                     wvFunction.setReflPix(reflPix);
 
-                    final double wvLower = scapeMLut.getCwvArrayLUT()[0] + 0.001;
-                    final double wvUpper = scapeMLut.getCwvArrayLUT()[dimWv - 1] - 0.001;
+                    final double wvLower = scapeMLut.getCwvMin();
+                    final double wvUpper = scapeMLut.getCwvMax();
 
                     BrentSolver brentSolver = new BrentSolver(ScapeMConstants.FTOL);
                     double wvResult;
@@ -696,23 +726,24 @@ public class ScapeMAlgorithm implements Constants {
                     final int wvInf = wvFunction.getWvInf();
                     final double wvP = wvFunction.getWvP();
                     for (int i = 0; i < L1_BAND_NUM; i++) {
-                        lpwAc[i] = lpwSp[i][wvInf] + wvP * (lpwSp[i][wvInf + 1] - lpwSp[i][wvInf]);
-                        etwAc[i] = etwSp[i][wvInf] + wvP * (etwSp[i][wvInf + 1] - etwSp[i][wvInf]);
-                        sabAc[i] = sabSp[i][wvInf] + wvP * (sabSp[i][wvInf + 1] - sabSp[i][wvInf]);
+                        if (i != 10 && i != 14) {
+                            lpwAc[i] = lpwSp[i][wvInf] + wvP * (lpwSp[i][wvInf + 1] - lpwSp[i][wvInf]);
+                            etwAc[i] = etwSp[i][wvInf] + wvP * (etwSp[i][wvInf + 1] - etwSp[i][wvInf]);
+                            sabAc[i] = sabSp[i][wvInf] + wvP * (sabSp[i][wvInf + 1] - sabSp[i][wvInf]);
 
-                        final double xTerm =
-                                Math.PI * (toaArrayCell[i][x - rect.x][y - rect.y] - lpwAc[i]) / etwAc[i];
-                        final double refl = xTerm / (1.0 + sabAc[i] * xTerm);
-                        scapeMResult.setReflPixel(i, x - rect.x, y - rect.y, refl);
+                            final double xTerm =
+                                    Math.PI * (toaArrayCell[i][x - rect.x][y - rect.y] - lpwAc[i]) / etwAc[i];
+                            final double refl = xTerm / (1.0 + sabAc[i] * xTerm);
+                            scapeMResult.setReflPixel(i, x - rect.x, y - rect.y, refl);
+                        }
                     }
                 } else {
-                    // invalid
+                    // invalid due to one or more of the above cases
                     for (int i = 0; i < L1_BAND_NUM; i++) {
                         scapeMResult.setReflPixel(i, x - rect.x, y - rect.y, ScapeMConstants.AC_NODATA);
                     }
                     scapeMResult.setWvPixel(x - rect.x, y - rect.y, ScapeMConstants.AC_NODATA);
                 }
-
             }
 
         }

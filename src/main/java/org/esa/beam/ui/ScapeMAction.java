@@ -5,8 +5,10 @@ import org.esa.beam.framework.ui.command.CommandEvent;
 import org.esa.beam.operator.ScapeMOp;
 import org.esa.beam.visat.actions.AbstractVisatAction;
 
+import java.awt.*;
+
 /**
- * SCAPE-M Action class
+ * SCAPE-M Action class for VISAT
  *
  * @author Tonio Fincke, Olaf Danne
  */
@@ -19,7 +21,8 @@ public class ScapeMAction extends AbstractVisatAction {
         final DefaultSingleTargetProductDialog productDialog = new DefaultSingleTargetProductDialog(
                 "beam.scapeM", getAppContext(),
                 "SCAPE-M Atmospheric Correction - v" + version, helpId);
-        productDialog.setTargetProductNameSuffix("_AC");
+        productDialog.setTargetProductNameSuffix("_SCAPEM");
+        productDialog.getJDialog().getContentPane().setPreferredSize(new Dimension(500, 400));
         productDialog.show();
     }
 

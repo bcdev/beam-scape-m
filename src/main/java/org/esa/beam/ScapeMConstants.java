@@ -39,10 +39,6 @@ public class ScapeMConstants {
 
     public final static int NUM_REF_PIXELS = 5;
 
-    public final static int REF_PIXELS_HIGH = 0;
-    public final static int REF_PIXELS_MEDIUM = 1;
-    public final static int REF_PIXELS_LOW = 2;
-
     public final static double[][] RHO_VEG_ALL = {
             {0.0235, 0.0382, 0.0319, 0.0342, 0.0526, 0.0425, 0.0371, 0.0369, 0.0789, 0.3561, 0.3698, 0.3983, 0.4248, 0.4252, 0.4254},
             {0.0206, 0.04120, 0.0445, 0.0498, 0.0728, 0.0821, 0.0847, 0.0870, 0.1301, 0.1994, 0.2020, 0.2074, 0.2365, 0.2419, 0.2459},
@@ -60,13 +56,6 @@ public class ScapeMConstants {
             0.0, 1.28467, 1.15624, 1.13002, 0.0
     };
 
-    public static final double VISIBILITY_NODATA_VALUE = 0.0;
-    public static final double AOT_NODATA_VALUE = 0.0;
-    public static final String SCAPEM_VALID_EXPR = "!l1_flags.INVALID";
-
-    public static final String VISIBILITY_BAND_NAME = "CELL_VISIBILITY";
-    public static final String AOT550_BAND_NAME = "AOT_550";
-
     public final static double[][] AOT_GRID = {
             {0.673345, 0.472727, 0.324623, 0.220397, 0.136966, 0.0900341, 0.0586890},
             {0.597473, 0.420376, 0.289417, 0.197476, 0.123751, 0.0822952, 0.0545618},
@@ -79,12 +68,23 @@ public class ScapeMConstants {
     public static final double FTOL = 1.E-4;
     public static final int MAXITER = 10000;
 
+    public static final String DEFAULT_DEM_NAME = "GETASSE30";
+    public static final double VISIBILITY_NODATA_VALUE = 0.0;
+
+    public static final double AOT_NODATA_VALUE = 0.0;
+    public static final String SCAPEM_VALID_EXPR = "!l1_flags.INVALID";
+
+    public static final String VISIBILITY_BAND_NAME = "CELL_VISIBILITY";
+
+    public static final String AOT550_BAND_NAME = "AOT_550";
+    public static final double AC_NODATA = -1.0;
+    public static final String WATER_VAPOUR_BAND_NAME = "water_vapour";
+
+    public static final double WATER_VAPOUR_NODATA_VALUE = 0.0;
+
     public static final int CLOUD_INVALID_BIT = 0;
     public static final int CLOUD_CERTAIN_BIT = 1;
     public static final int CLOUD_PRESUMABLY_BIT = 2;
     public static final int CLOUD_OCEAN_BIT = 3;
 
-    public static final double AC_NODATA = -1.0;
-    public static final String WATER_VAPOUR_BAND_NAME = "water_vapour";
-    public static final double WATER_VAPOUR_NODATA_VALUE = 0.0;
 }
