@@ -8,7 +8,7 @@ package org.esa.beam.math;
  */
 public class Powell {
 
-    private static final int ITMAX = 1000;
+    private static final int ITMAX = 20000;
 
     /**
      * This method provides a minimisation of a function of n variables
@@ -28,7 +28,7 @@ public class Powell {
         Linmin linmin = new Linmin();
 
         if (p.length != xi.length || xi.length != xi[0].length) {
-            throw new IllegalArgumentException("dimentions must agree");
+            throw new IllegalArgumentException("dimensions must agree");
         }
         final int n = p.length;
         double[] pt = new double[n];

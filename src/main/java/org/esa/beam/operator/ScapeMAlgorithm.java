@@ -155,7 +155,7 @@ public class ScapeMAlgorithm implements Constants {
         for (int y = 0; y < cosSzaCell[0].length; y++) {
             for (int x = 0; x < cosSzaCell.length; x++) {
                 if (!(Double.isNaN(cosSzaCell[x][y]))) {
-                    if(clearPixelStrategy.isValid(rect.x + x, rect.y + y)) {
+                    if (clearPixelStrategy.isValid(rect.x + x, rect.y + y)) {
                         cosSzaMean += cosSzaCell[x][y];
                         cosSzaCount++;
                     }
@@ -242,6 +242,7 @@ public class ScapeMAlgorithm implements Constants {
      * @param cosSzaArrayCell      - cosSza singe values
      * @param cosSzaMeanCell       - cosSza mean cell value
      * @param cellIsClear45Percent - true if cell is > 45% clea land
+     * @param targetRect
      * @return visibility
      */
     static double getCellVisibility(double[][][] toaArrayCell,
@@ -251,13 +252,17 @@ public class ScapeMAlgorithm implements Constants {
                                     double[][] cosSzaArrayCell, // mus_il_sub
                                     double cosSzaMeanCell, // mus_il
                                     boolean cellIsClear45Percent,
-                                    ScapeMLut scapeMLut) {
+                                    ScapeMLut scapeMLut, Rectangle targetRect) {
 
         final int nVis = scapeMLut.getVisArrayLUT().length;
         final double[] step = {1.0, 0.1};
         final double wvInit = 2.0;
 
         double vis = scapeMLut.getVisMin() - step[0];
+        double[][] fInt = null;
+        if (targetRect.x == 30 && targetRect.y == 0) {
+            System.out.println("tar# = " + targetRect);
+        }
         for (int i = 0; i <= 1; i++) {
             if (i == 1) {
                 vis = Math.max(vis - step[0], scapeMLut.getVisMin());
@@ -265,7 +270,7 @@ public class ScapeMAlgorithm implements Constants {
             boolean repeat = true;
             while (((vis + step[i]) < scapeMLut.getVisMax()) && repeat) {
                 vis += step[i];
-                double[][] fInt = LutAccess.interpolAtmParamLut(scapeMLut.getAtmParamLut(), vza, sza, raa, hsurfMeanCell, vis, wvInit);
+                fInt = LutAccess.interpolAtmParamLut(scapeMLut.getAtmParamLut(), vza, sza, raa, hsurfMeanCell, vis, wvInit);
                 repeat = false;
                 for (int j = 0; j < nVis; j++) {
                     if (toaMinCell[j] <= fInt[j][0]) {
@@ -295,7 +300,7 @@ public class ScapeMAlgorithm implements Constants {
                 }
                 if (!invalid) {
                     // todo: activate and verify later
-//                    visVal = computeRefinedVisibility(visVal, refPixels, vza, sza, raa, hsurfMeanCell, wvInit, cosSzaMeanCell, scapeMLut);
+                    visVal = computeRefinedVisibility(visVal, refPixels, vza, sza, raa, hsurfMeanCell, wvInit, cosSzaMeanCell, scapeMLut);
                 }
             }
         } else {
@@ -476,22 +481,28 @@ public class ScapeMAlgorithm implements Constants {
         final int limRefSets = 1;    // for AOT_time_flg eq 1, see .inp file
         final int nEMVeg = 3;    // for AOT_time_flg eq 1, see .inp file
 
-        final int nRefSets = Math.max(refPixels[0].length, limRefSets);
+        final int nRefSets = Math.min(refPixels[0].length, limRefSets);
 
         double[] visArr = new double[nRefSets];
         double[] fminArr = new double[nEMVeg];
         double[] visArrAux = new double[nEMVeg];
 
-        ToaMinimization toaMinimization = new ToaMinimization(visLim, scapeMLut.getVisArrayLUT(), lpw, etw, sab, refPixels, 0.0);
+        ToaMinimization toaMinimization = new ToaMinimization(visLim, scapeMLut.getVisArrayLUT(), lpw, etw, sab, 0.0);
+        final double[][] xiInput = xi.clone();
         for (int i = 0; i < nRefSets; i++) {
+            double[][] refSetPixels = new double[L1_BAND_NUM][ScapeMConstants.NUM_REF_PIXELS];
+            for (int j = 0; j < L1_BAND_NUM; j++) {
+                for (int k = 0; k < ScapeMConstants.NUM_REF_PIXELS; k++) {
+                    refSetPixels[j][k] = refPixels[j][i][k];
+                }
+            }
+            toaMinimization.setRefPixels(refSetPixels);
+
             for (int j = 0; j < nEMVeg; j++) {
                 double[] xVector = powellInputInit.clone();
                 xVector[10] = visLim + 0.01;
-                double[][] xiInput = xi.clone();
 
-                final double[] weight = new double[]{2., 2., 1.5, 1.5, 1.};
-
-                toaMinimization.setEmVegIndex(j);
+                double[] weight = new double[]{2., 2., 1.5, 1.5, 1.};
                 toaMinimization.setWeight(weight);
                 toaMinimization.setRhoVeg(ScapeMConstants.RHO_VEG_ALL[j]);
 
@@ -513,18 +524,15 @@ public class ScapeMAlgorithm implements Constants {
                     }
                 }
                 if (chiSqrOutsideRangeCount > 0) {
-                    for (int k = 0; k < chiSqr.length; k++) {
-                        if (chiSqr[k] > 2.0 * chiSqrMean) {
-                            weight[k] = 0.0;
-                            toaMinimization.setWeight(weight);
-                            toaMinimization.setEmVegIndex(j);
-                            toaMinimization.setRhoVeg(ScapeMConstants.RHO_VEG_ALL[j]);
-                            fmin = Powell.fmin(xVector,
-                                               xiInput,
-                                               ScapeMConstants.POWELL_FTOL,
-                                               toaMinimization);
-                        }
+                    System.out.println("chiSqrOutsideRange:  " + i + "," + j);
+                    for (int k = 0; k < chiSqrOutsideRangeCount; k++) {
+                        weight[k] = 0.0;
                     }
+                    toaMinimization.setWeight(weight);
+                    fmin = Powell.fmin(xVector,
+                                       xiInput,
+                                       ScapeMConstants.POWELL_FTOL,
+                                       toaMinimization);
                 }
                 visArrAux[j] = xVector[numX - 1];
                 fminArr[j] = fmin / (5.0 - chiSqrOutsideRangeCount);

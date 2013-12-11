@@ -158,7 +158,7 @@ public class ScapeMVisibilityOp extends MerisBasisOp implements Constants {
                                                                             cosSzaArrayCell,
                                                                             cosSzaMeanCell,
                                                                             cellIsClear45Percent,
-                                                                            scapeMLut);
+                                                                            scapeMLut, targetRect);
 
                 setCellVisibilitySamples(targetTile, targetRect, visibility);
             } catch (Exception e) {
