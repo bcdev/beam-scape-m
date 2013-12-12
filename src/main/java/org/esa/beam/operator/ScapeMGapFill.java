@@ -84,7 +84,7 @@ public class ScapeMGapFill {
         for (int y = 0; y < numberOfCellRows; y++) {
             for (int x = 0; x < numberOfCellColumns; x++) {
                 final float cellValue = visibilityBand.getSampleFloat(x * tileWidth, y * tileHeight);
-                if (Double.isNaN(cellValue)) {
+                if (Double.isNaN(cellValue) || cellValue == 0.0f) {
                     cellSamples[x][y] = (float) noDataValue;
                 } else {
                     cellSamples[x][y] = cellValue;

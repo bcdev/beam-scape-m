@@ -57,6 +57,16 @@ public class ScapeMAtmosCorrOp extends MerisBasisOp implements Constants {
                defaultValue = "false")
     private boolean useDEM;
 
+    @Parameter(description = "If set, TOA reflectances are written to output product",
+               label = "Write rhoTOA",
+               defaultValue = "false")
+    private boolean outputRhoToa;
+
+    @Parameter(description = "If set, AC corrected reflectance band 2 (443nm) is written to output product",
+               label = "Write 443nm reflectance band",
+               defaultValue = "false")
+    private boolean outputReflBand2;
+
     @SourceProduct(alias = "source")
     private Product sourceProduct;
 
@@ -74,10 +84,12 @@ public class ScapeMAtmosCorrOp extends MerisBasisOp implements Constants {
     private ElevationModel elevationModel;
 
     private Band[] reflBands;
+    private Band[] rhoToaBands;
     private Band flagBand;
 
     public static final String RADIANCE_BAND_PREFIX = "radiance";
     public static final String REFL_BAND_PREFIX = "refl";
+    public static final String TOA_BAND_PREFIX = "refl_toa";
     public static final String CORR_FLAGS = "scapem_corr_flags";
 
     @Override
@@ -105,7 +117,7 @@ public class ScapeMAtmosCorrOp extends MerisBasisOp implements Constants {
         Tile altitudeTile = geAltitudeTile(targetRect);
 
         ClearPixelStrategy clearPixelStrategy;
-        if(computeOverWater) {
+        if (computeOverWater) {
             clearPixelStrategy = new ClearLandAndWaterPixelStrategy(cloudProduct.getBandAt(0));
         } else {
             clearPixelStrategy = new ClearLandPixelStrategy(cloudProduct.getBandAt(0));
@@ -152,6 +164,10 @@ public class ScapeMAtmosCorrOp extends MerisBasisOp implements Constants {
             }
 
             Tile[] reflTiles = getTargetTileGroup(reflBands, targetTiles);
+            Tile[] rhoToaTiles = null;
+            if (outputRhoToa) {
+                rhoToaTiles = getTargetTileGroup(rhoToaBands, targetTiles);
+            }
 
             final int dimWv = scapeMLut.getCwvArrayLUT().length;
             final int dimVis = scapeMLut.getVisArrayLUT().length;
@@ -211,9 +227,23 @@ public class ScapeMAtmosCorrOp extends MerisBasisOp implements Constants {
                 for (int x = targetRect.x; x < targetRect.x + targetRect.width; x++) {
                     wvTile.setSample(x, y, acResult.getWvPixel(x - targetRect.x, y - targetRect.y));
                     for (int bandId = 0; bandId < L1_BAND_NUM; bandId++) {
-                        if (bandId != 10 && bandId != 14) {
+                        final boolean writeOptionalBands = (bandId == 1 && outputReflBand2);
+                        if ((bandId != 1 && bandId != 10 && bandId != 14) || writeOptionalBands) {
                             Tile reflTile = reflTiles[bandId];
                             reflTile.setSample(x, y, acResult.getReflPixel(bandId, x - targetRect.x, y - targetRect.y));
+                        }
+                    }
+                }
+            }
+            if (outputRhoToa) {
+                for (int y = targetRect.y; y < targetRect.y + targetRect.height; y++) {
+                    for (int x = targetRect.x; x < targetRect.x + targetRect.width; x++) {
+                        for (int bandId = 0; bandId < L1_BAND_NUM; bandId++) {
+                            final boolean writeOptionalBands = (bandId == 1 && outputReflBand2);
+                            if ((bandId != 1 && bandId != 10 && bandId != 14) || writeOptionalBands) {
+                                Tile rhoToaTile = rhoToaTiles[bandId];
+                                rhoToaTile.setSample(x, y, toaArrayCell[bandId][x - targetRect.x][y - targetRect.y]);
+                            }
                         }
                     }
                 }
@@ -236,6 +266,9 @@ public class ScapeMAtmosCorrOp extends MerisBasisOp implements Constants {
         wvBand.setValidPixelExpression(ScapeMConstants.SCAPEM_VALID_EXPR);
 
         reflBands = addBandGroup(REFL_BAND_PREFIX);
+        if (outputRhoToa) {
+            rhoToaBands = addBandGroup(TOA_BAND_PREFIX);
+        }
 
         // todo: check if specific flag band is needed
 //        flagBand = targetProduct.addBand(CORR_FLAGS, ProductData.TYPE_INT16);
@@ -255,7 +288,8 @@ public class ScapeMAtmosCorrOp extends MerisBasisOp implements Constants {
     private Band[] addBandGroup(String prefix) {
         Band[] bands = new Band[L1_BAND_NUM];
         for (int i = 0; i < L1_BAND_NUM; i++) {
-            if (i != 10 && i != 14) {
+            final boolean writeOptionalBands = (i == 1 && outputReflBand2);
+            if ((i != 1 && i != 10 && i != 14) || writeOptionalBands) {
                 Band targetBand = targetProduct.addBand(prefix + "_" + (i + 1), ProductData.TYPE_FLOAT32);
                 final String srcBandName = RADIANCE_BAND_PREFIX + "_" + (i + 1);
                 ProductUtils.copySpectralBandProperties(sourceProduct.getBand(srcBandName), targetBand);

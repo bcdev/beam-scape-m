@@ -259,9 +259,9 @@ public class ScapeMAlgorithm implements Constants {
         final double wvInit = 2.0;
 
         double vis = scapeMLut.getVisMin() - step[0];
-        double[][] fInt = null;
+        double[][] fInt;
         if (targetRect.x == 30 && targetRect.y == 0) {
-            System.out.println("tar# = " + targetRect);
+//            System.out.println("targetRect = " + targetRect);
         }
         for (int i = 0; i <= 1; i++) {
             if (i == 1) {
@@ -299,7 +299,6 @@ public class ScapeMAlgorithm implements Constants {
                     }
                 }
                 if (!invalid) {
-                    // todo: activate and verify later
                     visVal = computeRefinedVisibility(visVal, refPixels, vza, sza, raa, hsurfMeanCell, wvInit, cosSzaMeanCell, scapeMLut);
                 }
             }
@@ -524,7 +523,7 @@ public class ScapeMAlgorithm implements Constants {
                     }
                 }
                 if (chiSqrOutsideRangeCount > 0) {
-                    System.out.println("chiSqrOutsideRange:  " + i + "," + j);
+//                    System.out.println("chiSqrOutsideRange:  " + i + "," + j);
                     for (int k = 0; k < chiSqrOutsideRangeCount; k++) {
                         weight[k] = 0.0;
                     }
@@ -633,8 +632,11 @@ public class ScapeMAlgorithm implements Constants {
                             hsIndex = i;
                         }
                     }
-                    final double hsP = (demPix - hsfArrayLUT[hsIndex]) /
-                            (hsfArrayLUT[hsIndex + 1] - hsfArrayLUT[hsIndex]);
+                    double hsP = 0.5;
+                    if (hsIndex >= 0 && hsIndex < hsfArrayLUT.length - 1) {
+                        hsP = (demPix - hsfArrayLUT[hsIndex]) /
+                                (hsfArrayLUT[hsIndex + 1] - hsfArrayLUT[hsIndex]);
+                    }
 
                     int visIndex = -1;
                     final double[] visArrayLUT = scapeMLut.getVisArrayLUT();
@@ -643,8 +645,12 @@ public class ScapeMAlgorithm implements Constants {
                             visIndex = i;
                         }
                     }
-                    final double visP = (visPix - visArrayLUT[visIndex]) /
-                            (visArrayLUT[visIndex + 1] - visArrayLUT[visIndex]);
+
+                    double visP = 0.5;
+                    if (visIndex >= 0 && visIndex < visArrayLUT.length - 1) {
+                        visP = (visPix - visArrayLUT[visIndex]) /
+                                (visArrayLUT[visIndex + 1] - visArrayLUT[visIndex]);
+                    }
 
                     double[][] lpwSp = new double[L1_BAND_NUM][dimWv];
                     for (int bandId = 0; bandId < L1_BAND_NUM; bandId++) {

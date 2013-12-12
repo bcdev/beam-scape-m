@@ -42,6 +42,16 @@ public class ScapeMOp extends MerisBasisOp implements Constants {
                defaultValue = "false")
     private boolean useDEM;
 
+    @Parameter(description = "If set, TOA reflectances are written to output product",
+                                            label = "Write rhoTOA",
+                                            defaultValue = "false")
+    private boolean outputRhoToa;
+
+    @Parameter(description = "If set, AC corrected reflectance band 2 (443nm) is written to output product",
+               label = "Write 443nm reflectance band",
+               defaultValue = "false")
+    private boolean outputReflBand2;
+
     @SourceProduct(description = "MERIS L1B product")
     private Product sourceProduct;
 
@@ -101,11 +111,10 @@ public class ScapeMOp extends MerisBasisOp implements Constants {
             throw new OperatorException(e.getMessage(), e);
         }
 
-        // smooth...       // todo: insert smoothing finally after reflectances are verified against IDL
-        smoothedVisibilityProduct = gapFilledVisibilityProduct;
-//        Map<String, Product> smoothInput = new HashMap<String, Product>(4);
-//        smoothInput.put("source", gapFilledVisibilityProduct);
-//        smoothedVisibilityProduct = GPF.createProduct(OperatorSpi.getOperatorAlias(ScapeMSmoothOp.class), GPF.NO_PARAMS, smoothInput);
+//        smoothedVisibilityProduct = gapFilledVisibilityProduct;
+        Map<String, Product> smoothInput = new HashMap<String, Product>(4);
+        smoothInput.put("source", gapFilledVisibilityProduct);
+        smoothedVisibilityProduct = GPF.createProduct(OperatorSpi.getOperatorAlias(ScapeMSmoothFillOp.class), GPF.NO_PARAMS, smoothInput);
 
         // convert visibility to AOT
 //        aotProduct = smoothedVisibilityProduct;
@@ -119,7 +128,6 @@ public class ScapeMOp extends MerisBasisOp implements Constants {
 
         // derive CWV...
         // derive reflectance...
-//        atmosCorrProduct = smoothedVisibilityProduct;
         Map<String, Product> atmosCorrInput = new HashMap<String, Product>(4);
         atmosCorrInput.put("source", sourceProduct);
         atmosCorrInput.put("cloud", cloudProduct);
@@ -128,6 +136,8 @@ public class ScapeMOp extends MerisBasisOp implements Constants {
         atmosCorrParams.put("scapeMLut", scapeMLut);
         atmosCorrParams.put("computeOverWater", computeOverWater);
         atmosCorrParams.put("useDEM", useDEM);
+        atmosCorrParams.put("outputRhoToa", outputRhoToa);
+        atmosCorrParams.put("outputReflBand2", outputReflBand2);
         atmosCorrProduct = GPF.createProduct(OperatorSpi.getOperatorAlias(ScapeMAtmosCorrOp.class),
                                              atmosCorrParams, atmosCorrInput);
 
