@@ -34,7 +34,7 @@
             <jobConfig>
                 <jobParameter>
                     <name>calvalus.hadoop.mapred.child.java.opts</name>
-                    <value>-Xmx1500M</value>
+                    <value>-Xmx3000M</value>
                 </jobParameter>
 
                 <jobParameter>
