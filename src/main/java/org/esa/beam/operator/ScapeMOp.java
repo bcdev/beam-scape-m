@@ -29,12 +29,12 @@ import java.util.Map;
                   authors = "Tonio Fincke, Olaf Danne",
                   copyright = "(c) 2013 Brockmann Consult",
                   description = "Operator for MERIS atmospheric correction with SCAPE-M algorithm.")
-public class ScapeMOp extends MerisBasisOp implements Constants {
+public class ScapeMOp extends ScapeMMerisBasisOp implements Constants {
     public static final String VERSION = "1.0-SNAPSHOT";
 
     @Parameter(description = "Compute over all water (not just over lakes)",
                label = "Compute over all water (not just over lakes)",
-               defaultValue = "false")
+               defaultValue = "true")
     private boolean computeOverWater;
 
     @Parameter(description = "If set, use GETASSE30 DEM, otherwise get altitudes from product TPGs",
@@ -141,6 +141,7 @@ public class ScapeMOp extends MerisBasisOp implements Constants {
         atmosCorrProduct = GPF.createProduct(OperatorSpi.getOperatorAlias(ScapeMAtmosCorrOp.class),
                                              atmosCorrParams, atmosCorrInput);
 
+//        targetProduct = aotProduct;
         targetProduct = atmosCorrProduct;
         ProductUtils.copyFlagBands(cloudProduct, targetProduct, true);
         ProductUtils.copyMasks(cloudProduct, targetProduct);

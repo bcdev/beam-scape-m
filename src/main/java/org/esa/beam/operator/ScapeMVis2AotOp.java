@@ -30,7 +30,7 @@ import java.awt.*;
         copyright = "(c) 2013 Brockmann Consult",
         internal = true,
         description = "Operator for visibility to AOT conversion.")
-public class ScapeMVis2AotOp extends MerisBasisOp implements Constants {
+public class ScapeMVis2AotOp extends ScapeMMerisBasisOp implements Constants {
 
     @SourceProduct(alias = "source")
     private Product sourceProduct;
@@ -127,9 +127,10 @@ public class ScapeMVis2AotOp extends MerisBasisOp implements Constants {
         }
     }
 
+    // todo: duplicated code, move to utils
     private Tile geAltitudeTile(Rectangle targetRect) {
         Tile demTile = null;
-        Band demBand = null;
+        Band demBand;
         if (useDEM) {
             demBand = sourceProduct.getBand("dem_elevation");
             if (demBand != null) {

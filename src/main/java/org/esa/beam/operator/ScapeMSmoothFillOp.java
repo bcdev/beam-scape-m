@@ -12,7 +12,6 @@ import org.esa.beam.framework.gpf.Tile;
 import org.esa.beam.framework.gpf.annotations.OperatorMetadata;
 import org.esa.beam.framework.gpf.annotations.SourceProduct;
 import org.esa.beam.framework.gpf.annotations.TargetProduct;
-import org.esa.beam.gpf.operators.meris.MerisBasisOp;
 import org.esa.beam.meris.l2auxdata.Constants;
 import org.esa.beam.util.ProductUtils;
 import org.esa.beam.util.RectangleExtender;
@@ -31,7 +30,7 @@ import java.util.Map;
                   copyright = "(c) 2013 Brockmann Consult",
                   internal = true,
                   description = "Fills right and lower edges of smoothed product.")
-public class ScapeMSmoothFillOp extends MerisBasisOp implements Constants {
+public class ScapeMSmoothFillOp extends ScapeMMerisBasisOp implements Constants {
 
     @SourceProduct(alias = "source")
     private Product sourceProduct;

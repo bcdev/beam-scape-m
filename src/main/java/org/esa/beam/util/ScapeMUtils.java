@@ -1,12 +1,11 @@
 package org.esa.beam.util;
 
-import org.esa.beam.framework.datamodel.Band;
-import org.esa.beam.framework.datamodel.Product;
-import org.esa.beam.framework.datamodel.TiePointGrid;
-import org.esa.beam.framework.gpf.OperatorException;
-import org.esa.beam.framework.gpf.Tile;
-
-import java.awt.*;
+import javax.media.jai.JAI;
+import javax.media.jai.RenderedOp;
+import javax.media.jai.operator.MeanDescriptor;
+import javax.media.jai.operator.SubtractDescriptor;
+import java.awt.image.RenderedImage;
+import java.awt.image.renderable.ParameterBlock;
 
 /**
  * SCAPE-M utility class
@@ -70,9 +69,26 @@ public class ScapeMUtils {
         return sum;
     }
 
-    public static double getMeanDouble2D(double[][] wv) {
-        // todo implement
-        return 0;  //To change body of created methods use File | Settings | File Templates.
+    // todo: check if still needed
+    public static double getImageMeanValue(RenderedImage image) {
+        // retrieve mean of source image of given band
+        final RenderedOp meanOp = MeanDescriptor.create(image, null, 1, 1, null);
+        final double[] mean = (double[]) meanOp.getProperty("mean");
+        return mean[0];
+    }
+
+    public static RenderedOp getImagesDifference(RenderedImage image1, RenderedImage image2) {
+        // retrieve pixelwise differences of two images
+        return SubtractDescriptor.create(image1, image2, null);
+    }
+
+    public static RenderedOp getImagesAbsolute(RenderedImage image1) {
+        // retrieve new image with absolute of pixels of source image
+
+        // Create a ParameterBlock with the source image.
+        ParameterBlock pb = new ParameterBlock();
+        pb.addSource(image1);
+        return JAI.create("absolute", pb);
     }
 
 }

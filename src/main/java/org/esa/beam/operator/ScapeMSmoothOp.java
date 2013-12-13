@@ -27,7 +27,7 @@ import java.awt.image.RenderedImage;
                   copyright = "(c) 2013 Brockmann Consult",
                   internal = true,
                   description = "Operator for MERIS atmospheric correction with SCAPE-M algorithm: cell visibility retrieval part.")
-public class ScapeMSmoothOp extends MerisBasisOp implements Constants {
+public class ScapeMSmoothOp extends ScapeMMerisBasisOp implements Constants {
 
     @SourceProduct(alias = "source")
     private Product sourceProduct;

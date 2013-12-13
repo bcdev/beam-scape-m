@@ -23,6 +23,7 @@ import org.esa.beam.meris.l2auxdata.Constants;
 import org.esa.beam.util.*;
 
 import javax.media.jai.BorderExtender;
+import javax.media.jai.RenderedOp;
 import java.awt.*;
 import java.util.Calendar;
 import java.util.Map;
@@ -37,7 +38,7 @@ import java.util.Map;
                   copyright = "(c) 2013 Brockmann Consult",
                   internal = true,
                   description = "Operator for MERIS atmospheric correction with SCAPE-M algorithm: AC part.")
-public class ScapeMAtmosCorrOp extends MerisBasisOp implements Constants {
+public class ScapeMAtmosCorrOp extends ScapeMMerisBasisOp implements Constants {
 
     // todo: maybe write abstract operator to combine this AC op with visibility op and get rid of duplicated code
 
@@ -49,7 +50,7 @@ public class ScapeMAtmosCorrOp extends MerisBasisOp implements Constants {
 
     @Parameter(description = "Compute over all water (not just over lakes)",
                label = "Compute over all water (not just over lakes)",
-               defaultValue = "false")
+               defaultValue = "true")
     private boolean computeOverWater;
 
     @Parameter(description = "If set, use GETASSE30 DEM, otherwise get altitudes from product TPGs",
@@ -87,6 +88,10 @@ public class ScapeMAtmosCorrOp extends MerisBasisOp implements Constants {
     private Band[] rhoToaBands;
     private Band flagBand;
 
+    private double szaMean;
+    private double vzaMean;
+    private double raaMean;
+
     public static final String RADIANCE_BAND_PREFIX = "radiance";
     public static final String REFL_BAND_PREFIX = "refl";
     public static final String TOA_BAND_PREFIX = "refl_toa";
@@ -101,6 +106,17 @@ public class ScapeMAtmosCorrOp extends MerisBasisOp implements Constants {
             }
             elevationModel = demDescriptor.createDem(Resampling.BILINEAR_INTERPOLATION);
         }
+
+//        TiePointGrid szaGrid = sourceProduct.getTiePointGrid(EnvisatConstants.MERIS_SUN_ZENITH_DS_NAME);
+//        TiePointGrid vzaGrid = sourceProduct.getTiePointGrid(EnvisatConstants.MERIS_VIEW_ZENITH_DS_NAME);
+//        TiePointGrid saaGrid = sourceProduct.getTiePointGrid(EnvisatConstants.MERIS_SUN_AZIMUTH_DS_NAME);
+//        TiePointGrid vaaGrid = sourceProduct.getTiePointGrid(EnvisatConstants.MERIS_VIEW_AZIMUTH_DS_NAME);
+//
+//        szaMean = ScapeMUtils.getImageMeanValue(szaGrid.getSourceImage());
+//        vzaMean = ScapeMUtils.getImageMeanValue(vzaGrid.getSourceImage());
+//        RenderedOp azimDiffImage = ScapeMUtils.getImagesDifference(saaGrid.getSourceImage(), vaaGrid.getSourceImage());
+//        RenderedOp absAzimDiffImage = ScapeMUtils.getImagesAbsolute(azimDiffImage);
+//        raaMean = ScapeMUtils.getImageMeanValue(absAzimDiffImage);
 
         createTargetProduct();
     }
@@ -155,7 +171,6 @@ public class ScapeMAtmosCorrOp extends MerisBasisOp implements Constants {
 
             final double hsurfMeanCell = ScapeMAlgorithm.getHsurfMeanCell(hsurfArrayCell, targetRect, clearPixelStrategy);
             final double[][] cosSzaArrayCell = ScapeMAlgorithm.getCosSzaArrayCell(targetRect, szaTile);
-            final double cosSzaMeanCell = ScapeMAlgorithm.getCosSzaMeanCell(cosSzaArrayCell, targetRect, clearPixelStrategy);
 
             final int doy = sourceProduct.getStartTime().getAsCalendar().get(Calendar.DAY_OF_YEAR);
             double[][][] toaArrayCell = new double[L1_BAND_NUM][targetRect.width][targetRect.height];
@@ -184,6 +199,7 @@ public class ScapeMAtmosCorrOp extends MerisBasisOp implements Constants {
                         for (int k = 0; k < dimHurf; k++) {
                             double[][] fInt = LutAccess.interpolAtmParamLut(scapeMLut.getAtmParamLut(),
                                                                             vza, sza, phi,
+//                                                                            vza, szaMean, phi,
                                                                             scapeMLut.getHsfArrayLUT()[k],
                                                                             scapeMLut.getVisArrayLUT()[j],
                                                                             scapeMLut.getCwvArrayLUT()[i]);
@@ -198,29 +214,25 @@ public class ScapeMAtmosCorrOp extends MerisBasisOp implements Constants {
                 }
             }
 
-            ScapeMResult acResult = null;
-            double wvInit = ScapeMConstants.WV_INIT;
-            for (int i = 0; i < numWvIterations; i++) {
-                double[][] fInt = LutAccess.interpolAtmParamLut(scapeMLut.getAtmParamLut(),
-                                                                vza, sza, phi, hsurfMeanCell, ScapeMConstants.VIS_INIT, wvInit);
-                double[][][] reflImage = ScapeMAlgorithm.getReflImage(fInt, toaArrayCell, cosSzaArrayCell);
+            ScapeMResult acResult;
+            double[][] fInt = LutAccess.interpolAtmParamLut(scapeMLut.getAtmParamLut(),
+                                                            vza, sza, phi, hsurfMeanCell,
+//                                                            vza, szaMean, phi, hsurfMeanCell,
+                                                            ScapeMConstants.VIS_INIT, ScapeMConstants.WV_INIT);
+            double[][][] reflImage = ScapeMAlgorithm.getReflImage(fInt, toaArrayCell, cosSzaArrayCell);
 
-                acResult = ScapeMAlgorithm.computeAcResult(targetRect,
-                                                           visibilityTile,
-                                                           clearPixelStrategy,
-                                                           computeOverWater,
-                                                           toaArrayCell,
-                                                           hsurfArrayCell,
-                                                           cosSzaArrayCell,
-                                                           cosSzaMeanCell,
-                                                           reflImage,
-                                                           radianceTiles[13],
-                                                           radianceTiles[14],
-                                                           scapeMLut,
-                                                           lpw, e0tw, ediftw, tDirD, sab);
+            acResult = ScapeMAlgorithm.computeAcResult(targetRect,
+                                                       visibilityTile,
+                                                       clearPixelStrategy,
+                                                       toaArrayCell,
+                                                       hsurfArrayCell,
+                                                       cosSzaArrayCell,
+                                                       reflImage,
+                                                       radianceTiles[13],
+                                                       radianceTiles[14],
+                                                       scapeMLut,
+                                                       lpw, e0tw, ediftw, tDirD, sab);
 
-                wvInit = ScapeMUtils.getMeanDouble2D(acResult.getWv());
-            }
 
             Tile wvTile = targetTiles.get(targetProduct.getBand(ScapeMConstants.WATER_VAPOUR_BAND_NAME));
             for (int y = targetRect.y; y < targetRect.y + targetRect.height; y++) {
@@ -326,7 +338,7 @@ public class ScapeMAtmosCorrOp extends MerisBasisOp implements Constants {
 
     private Tile geAltitudeTile(Rectangle targetRect) {
         Tile demTile = null;
-        Band demBand = null;
+        Band demBand;
         if (useDEM) {
             demBand = sourceProduct.getBand("dem_elevation");
             if (demBand != null) {

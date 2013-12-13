@@ -38,7 +38,7 @@ import java.util.Calendar;
                   copyright = "(c) 2013 Brockmann Consult",
                   internal = true,
                   description = "Operator for MERIS atmospheric correction with SCAPE-M algorithm: cell visibility retrieval part.")
-public class ScapeMVisibilityOp extends MerisBasisOp implements Constants {
+public class ScapeMVisibilityOp extends ScapeMMerisBasisOp implements Constants {
 
     @Parameter(description = "ScapeM AOT Lookup table")
     private ScapeMLut scapeMLut;

@@ -16,24 +16,6 @@ public class ScapeMConstants {
             761.606f, 778.498f, 864.833f, 884.849f, 899.86f
     };
 
-    public final static double[] MERIS_CAL_COEFFS = {
-            0.009474839,
-            0.010603477,
-            0.01158433,
-            0.01070568,
-            0.00932934,
-            0.008188124,
-            0.0068480745,
-            0.0069379713,
-            0.0063089724,
-            0.008664634,
-            0.0088729495,
-            0.0036326132,
-            0.0035543414,
-            0.0061037163,
-            0.005430559
-    };
-
     public final static double solIrr7 = 1424.7742;
     public final static double solIrr9 = 1225.6102;
 
@@ -72,15 +54,17 @@ public class ScapeMConstants {
     public static final double VISIBILITY_NODATA_VALUE = 0.0;
 
     public static final double AOT_NODATA_VALUE = 0.0;
+    public static final double HSURF_NODATA_VALUE = 0.0;
     public static final String SCAPEM_VALID_EXPR = "!l1_flags.INVALID";
 
-    public static final String VISIBILITY_BAND_NAME = "CELL_VISIBILITY";
+    public static final String VISIBILITY_BAND_NAME = "cell_visibility";
 
     public static final String AOT550_BAND_NAME = "AOT_550";
     public static final double AC_NODATA = -1.0;
     public static final String WATER_VAPOUR_BAND_NAME = "water_vapour";
 
     public static final double WATER_VAPOUR_NODATA_VALUE = 0.0;
+    public static final double REFL_NODATA_VALUE = 0.0;
 
     public static final int CLOUD_INVALID_BIT = 0;
     public static final int CLOUD_CERTAIN_BIT = 1;
