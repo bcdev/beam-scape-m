@@ -7,12 +7,18 @@
         <processorDescriptor>
             <executableName>beam.scapeM</executableName>
             <processorName>SCAPE-M</processorName>
-            <processorVersion>${pom.version}</processorVersion>
+            <processorVersion>1.0-SNAPSHOT</processorVersion>
             <defaultParameters><![CDATA[<parameters>
     <!-- ***********Scape-M Parameters start here*********** -->
 
      <!-- Whether to compute over all water (not just over lakes) -->
-     <computeOverWater>false</computeOverWater>
+     <computeOverWater>true</computeOverWater>
+
+     <!-- Whether to write rhoToa bands to target product -->
+     <outputRhoToa>false</outputRhoToa>
+
+     <!-- Whether to write 441nm band to target product -->
+     <outputReflBand2>false</outputReflBand2>
 
 
 
@@ -109,6 +115,72 @@
                 </outputVariable>
                 <outputVariable>
                     <name>refl_14</name>
+                    <defaultAggregator>AVG</defaultAggregator>
+                    <defaultWeightCoeff>1.0</defaultWeightCoeff>
+                </outputVariable>
+
+                <outputVariable>
+                    <name>refl_toa_1</name>
+                    <defaultAggregator>AVG</defaultAggregator>
+                    <defaultWeightCoeff>1.0</defaultWeightCoeff>
+                </outputVariable>
+                <outputVariable>
+                    <name>refl_toa_2</name>
+                    <defaultAggregator>AVG</defaultAggregator>
+                    <defaultWeightCoeff>1.0</defaultWeightCoeff>
+                </outputVariable>
+                <outputVariable>
+                    <name>refl_toa_3</name>
+                    <defaultAggregator>AVG</defaultAggregator>
+                    <defaultWeightCoeff>1.0</defaultWeightCoeff>
+                </outputVariable>
+                <outputVariable>
+                    <name>refl_toa_4</name>
+                    <defaultAggregator>AVG</defaultAggregator>
+                    <defaultWeightCoeff>1.0</defaultWeightCoeff>
+                </outputVariable>
+                <outputVariable>
+                    <name>refl_toa_5</name>
+                    <defaultAggregator>AVG</defaultAggregator>
+                    <defaultWeightCoeff>1.0</defaultWeightCoeff>
+                </outputVariable>
+                <outputVariable>
+                    <name>refl_toa_6</name>
+                    <defaultAggregator>AVG</defaultAggregator>
+                    <defaultWeightCoeff>1.0</defaultWeightCoeff>
+                </outputVariable>
+                <outputVariable>
+                    <name>refl_toa_7</name>
+                    <defaultAggregator>AVG</defaultAggregator>
+                    <defaultWeightCoeff>1.0</defaultWeightCoeff>
+                </outputVariable>
+                <outputVariable>
+                    <name>refl_toa_8</name>
+                    <defaultAggregator>AVG</defaultAggregator>
+                    <defaultWeightCoeff>1.0</defaultWeightCoeff>
+                </outputVariable>
+                <outputVariable>
+                    <name>refl_toa_9</name>
+                    <defaultAggregator>AVG</defaultAggregator>
+                    <defaultWeightCoeff>1.0</defaultWeightCoeff>
+                </outputVariable>
+                <outputVariable>
+                    <name>refl_toa_10</name>
+                    <defaultAggregator>AVG</defaultAggregator>
+                    <defaultWeightCoeff>1.0</defaultWeightCoeff>
+                </outputVariable>
+                <outputVariable>
+                    <name>refl_toa_12</name>
+                    <defaultAggregator>AVG</defaultAggregator>
+                    <defaultWeightCoeff>1.0</defaultWeightCoeff>
+                </outputVariable>
+                <outputVariable>
+                    <name>refl_toa_13</name>
+                    <defaultAggregator>AVG</defaultAggregator>
+                    <defaultWeightCoeff>1.0</defaultWeightCoeff>
+                </outputVariable>
+                <outputVariable>
+                    <name>refl_toa_14</name>
                     <defaultAggregator>AVG</defaultAggregator>
                     <defaultWeightCoeff>1.0</defaultWeightCoeff>
                 </outputVariable>
