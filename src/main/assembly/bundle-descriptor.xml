@@ -38,6 +38,11 @@
                 </jobParameter>
 
                 <jobParameter>
+                    <name>calvalus.hadoop.mapred.max.map.failures.percent</name>
+                    <value>10</value>
+                </jobParameter>
+
+                <jobParameter>
                     <name>calvalus.system.beam.envisat.usePixelGeoCoding</name>
                     <value>true</value>
                 </jobParameter>
