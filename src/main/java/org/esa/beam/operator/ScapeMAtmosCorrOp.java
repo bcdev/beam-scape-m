@@ -171,6 +171,7 @@ public class ScapeMAtmosCorrOp extends ScapeMMerisBasisOp implements Constants {
 
             final double hsurfMeanCell = ScapeMAlgorithm.getHsurfMeanCell(hsurfArrayCell, targetRect, clearPixelStrategy);
             final double[][] cosSzaArrayCell = ScapeMAlgorithm.getCosSzaArrayCell(targetRect, szaTile);
+            final double cosSzaMeanCell = ScapeMAlgorithm.getCosSzaMeanCell(cosSzaArrayCell, targetRect, clearPixelStrategy);
 
             final int doy = sourceProduct.getStartTime().getAsCalendar().get(Calendar.DAY_OF_YEAR);
             double[][][] toaArrayCell = new double[L1_BAND_NUM][targetRect.width][targetRect.height];
@@ -227,6 +228,7 @@ public class ScapeMAtmosCorrOp extends ScapeMMerisBasisOp implements Constants {
                                                        toaArrayCell,
                                                        hsurfArrayCell,
                                                        cosSzaArrayCell,
+                                                       cosSzaMeanCell,
                                                        reflImage,
                                                        radianceTiles[13],
                                                        radianceTiles[14],
@@ -275,6 +277,7 @@ public class ScapeMAtmosCorrOp extends ScapeMMerisBasisOp implements Constants {
 
         Band wvBand = targetProduct.addBand(ScapeMConstants.WATER_VAPOUR_BAND_NAME, ProductData.TYPE_FLOAT32);
         wvBand.setNoDataValue(ScapeMConstants.WATER_VAPOUR_NODATA_VALUE);
+        wvBand.setUnit("g/cm^2");
         wvBand.setValidPixelExpression(ScapeMConstants.SCAPEM_VALID_EXPR);
 
         reflBands = addBandGroup(REFL_BAND_PREFIX);
@@ -305,6 +308,7 @@ public class ScapeMAtmosCorrOp extends ScapeMMerisBasisOp implements Constants {
                 Band targetBand = targetProduct.addBand(prefix + "_" + (i + 1), ProductData.TYPE_FLOAT32);
                 final String srcBandName = RADIANCE_BAND_PREFIX + "_" + (i + 1);
                 ProductUtils.copySpectralBandProperties(sourceProduct.getBand(srcBandName), targetBand);
+                targetBand.setUnit("dl");
                 targetBand.setNoDataValueUsed(true);
                 targetBand.setNoDataValue(BAD_VALUE);   // todo: check this value
                 bands[i] = targetBand;

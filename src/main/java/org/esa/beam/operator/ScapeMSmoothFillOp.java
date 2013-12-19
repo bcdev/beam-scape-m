@@ -35,6 +35,9 @@ public class ScapeMSmoothFillOp extends ScapeMMerisBasisOp implements Constants 
     @SourceProduct(alias = "source")
     private Product sourceProduct;
 
+    @SourceProduct(alias = "gapFilled")
+    private Product gapFilledProduct;
+
     @TargetProduct
     private Product targetProduct;
 
@@ -51,20 +54,20 @@ public class ScapeMSmoothFillOp extends ScapeMMerisBasisOp implements Constants 
     public void initialize() throws OperatorException {
 
         Map<String, Product> smoothInput = new HashMap<String, Product>(4);
-        smoothInput.put("source", sourceProduct);
+        smoothInput.put("source", gapFilledProduct);
         smoothedProduct = GPF.createProduct(OperatorSpi.getOperatorAlias(ScapeMSmoothOp.class), GPF.NO_PARAMS, smoothInput);
 
-        if (sourceProduct.getProductType().contains("_FR")) {
-            pixelsPerCell = ScapeMConstants.FR_PIXELS_PER_CELL;
+        if (sourceProduct.getProductType().contains("_RR")) {
+            pixelsPerCell = 2*ScapeMConstants.RR_PIXELS_PER_CELL;
         } else {
-            pixelsPerCell = ScapeMConstants.RR_PIXELS_PER_CELL;
+            pixelsPerCell = 2*ScapeMConstants.FR_PIXELS_PER_CELL;
         }
 
         rectCalculator = new RectangleExtender(
                 new Rectangle(sourceProduct.getSceneRasterWidth(),
                               sourceProduct.getSceneRasterHeight()),
-                2 * pixelsPerCell,
-                2 * pixelsPerCell);
+                pixelsPerCell,
+                pixelsPerCell);
         createTargetProduct();
     }
 
@@ -101,45 +104,45 @@ public class ScapeMSmoothFillOp extends ScapeMMerisBasisOp implements Constants 
         Tile visibilityTile = getSourceTile(visibilityBand, sourceRect);
 
         try {
-            boolean isRightEdge = targetRect.x + targetRect.width > rightEdge;
-            boolean isLowerEdge = targetRect.y + targetRect.height > lowerEdge;
+
+            if (targetRect.x == 1080 && targetRect.y == 300) {
+                System.out.println("targetRect = " + targetRect);
+            }
+            boolean isRightEdge = (targetRect.x >= rightEdge);
+
             if (isRightEdge) {
                 for (int y = targetRect.y; y < targetRect.y + targetRect.height; y++) {
-                    final double rightEdgeVisibility = visibilityTile.getSampleDouble(rightEdge - 1, y);
+                    final double rightEdgeVisibility = getRightEdgeVisibilitySample(visibilityTile, y);
                     for (int x = targetRect.x; x < targetRect.x + targetRect.width; x++) {
-                        if (x >= rightEdge) {
+                        if (visibilityTile.getSampleDouble(x, y) != ScapeMConstants.VISIBILITY_NODATA_VALUE) {
+                            targetTile.setSample(x, y, visibilityTile.getSampleDouble(x, y));
+                        } else {
                             targetTile.setSample(x, y, rightEdgeVisibility);
-                        } else {
-                            targetTile.setSample(x, y, visibilityTile.getSampleDouble(x, y));
                         }
                     }
                 }
-            }
-            if (isLowerEdge) {
-                for (int y = targetRect.y; y < targetRect.y + targetRect.height; y++) {
-                    for (int x = targetRect.x; x < targetRect.x + targetRect.width; x++) {
-                        if (y >= lowerEdge) {
-                            final double lowerEdgeVisibility = visibilityTile.getSampleDouble(x, lowerEdge - 1);
-                            targetTile.setSample(x, y, lowerEdgeVisibility);
-                        } else {
-                            targetTile.setSample(x, y, visibilityTile.getSampleDouble(x, y));
-                        }
-                    }
-                }
-            }
-
-            if (!isRightEdge && !isLowerEdge) {
+            } else {
+                // no edge - copy existing values
                 for (int y = targetRect.y; y < targetRect.y + targetRect.height; y++) {
                     for (int x = targetRect.x; x < targetRect.x + targetRect.width; x++) {
                         targetTile.setSample(x, y, visibilityTile.getSampleDouble(x, y));
                     }
                 }
             }
-
         } catch (Exception e) {
             // todo
             e.printStackTrace();
         }
+    }
+
+    private double getRightEdgeVisibilitySample(Tile visibilityTile, int y) {
+        int xIndex = rightEdge - 1;
+        double rightEdgeVis = visibilityTile.getSampleDouble(xIndex, y);
+        while (rightEdgeVis == ScapeMConstants.VISIBILITY_NODATA_VALUE &&
+                xIndex >= visibilityTile.getRectangle().x) {
+            rightEdgeVis = visibilityTile.getSampleDouble(xIndex--, y);
+        }
+        return rightEdgeVis;
     }
 
     public static class Spi extends OperatorSpi {

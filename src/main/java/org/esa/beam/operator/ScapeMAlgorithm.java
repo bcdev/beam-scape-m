@@ -277,7 +277,8 @@ public class ScapeMAlgorithm implements Constants {
                     }
                 }
                 if (!invalid) {
-                    visVal = computeRefinedVisibility(visVal, refPixels, vza, sza, raa, hsurfMeanCell, wvInit, cosSzaMeanCell, scapeMLut);
+                    visVal = computeRefinedVisibility(visVal, refPixels, vza, sza, raa, hsurfMeanCell, wvInit, cosSzaMeanCell, scapeMLut,
+                                                      targetRect);
                 }
             }
         } else {
@@ -418,7 +419,8 @@ public class ScapeMAlgorithm implements Constants {
 
     private static double computeRefinedVisibility(double visValInput, double[][][] refPixels, double vza, double sza, double raa,
                                                    double hsurfMeanCell, double wvInit, double cosSzaMeanCell,
-                                                   ScapeMLut scapeMLut) {
+                                                   ScapeMLut scapeMLut,
+                                                   Rectangle targetRect) {
 
         final int numSpec = 2;
         final int numX = numSpec * ScapeMConstants.NUM_REF_PIXELS + 1;
@@ -482,6 +484,10 @@ public class ScapeMAlgorithm implements Constants {
                 double[] weight = new double[]{2., 2., 1.5, 1.5, 1.};
                 toaMinimization.setWeight(weight);
                 toaMinimization.setRhoVeg(ScapeMConstants.RHO_VEG_ALL[j]);
+
+                if (targetRect.x == 30 && targetRect.y == 0) {
+                    System.out.println();
+                }
 
                 // 'minim_TOA' is the function to be minimized by Powell!
                 // we have to  use this kind of interface:
@@ -566,13 +572,15 @@ public class ScapeMAlgorithm implements Constants {
 
     /**
      * // todo: describe
+     *
      * @param rect
      * @param visibilityTile
      * @param clearPixelStrategy
      * @param toaArrayCell
      * @param hsurfArray
      * @param cosSzaArray
-     * @param reflImg
+     * @param cosSzaMeanCell
+     *@param reflImg
      * @param radianceTile13
      * @param radianceTile14
      * @param scapeMLut
@@ -581,8 +589,7 @@ public class ScapeMAlgorithm implements Constants {
      * @param ediftw
      * @param tDirD
      * @param sab
-     *
-     * @return
+*          @return
      */
     public static ScapeMResult computeAcResult(Rectangle rect,
                                                Tile visibilityTile,
@@ -590,7 +597,7 @@ public class ScapeMAlgorithm implements Constants {
                                                double[][][] toaArrayCell,
                                                double[][] hsurfArray,
                                                double[][] cosSzaArray,
-                                               double[][][] reflImg,
+                                               double cosSzaMeanCell, double[][][] reflImg,
                                                Tile radianceTile13,
                                                Tile radianceTile14,
                                                ScapeMLut scapeMLut,
@@ -665,8 +672,8 @@ public class ScapeMAlgorithm implements Constants {
                             for (int j = 0; j < visArrayLUT.length; j++) {
                                 for (int k = 0; k < hsfArrayLUT.length; k++) {
                                     // (1.- tdir_d * mus) * mun_term_arr[ind]:
-//                                    final double sum1 = (1.0 - tDirD[bandId][i][j][k] * cosSzaMeanCell) * 1.0;
-                                    final double sum1 = (1.0 - tDirD[bandId][i][j][k] * cosSza) * 1.0;
+                                    final double sum1 = (1.0 - tDirD[bandId][i][j][k] * cosSzaMeanCell) * 1.0;   // this is less precise, but follows IDL
+//                                    final double sum1 = (1.0 - tDirD[bandId][i][j][k] * cosSza) * 1.0;
                                     // tdir_d * mus_il_arr[ind] :
                                     final double sum2 = tDirD[bandId][i][j][k] * cosSza;
                                     // e0tw * mus_il_arr[ind] :

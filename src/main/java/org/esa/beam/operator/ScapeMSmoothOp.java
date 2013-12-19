@@ -40,10 +40,10 @@ public class ScapeMSmoothOp extends ScapeMMerisBasisOp implements Constants {
     @Override
     public void initialize() throws OperatorException {
 
-        if (sourceProduct.getProductType().contains("_FR")) {
-            pixelsPerCell = ScapeMConstants.FR_PIXELS_PER_CELL;
-        } else {
+        if (sourceProduct.getProductType().contains("_RR")) {
             pixelsPerCell = ScapeMConstants.RR_PIXELS_PER_CELL;
+        } else {
+            pixelsPerCell = ScapeMConstants.FR_PIXELS_PER_CELL;
         }
 
         createTargetProduct();

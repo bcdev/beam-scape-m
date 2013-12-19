@@ -16,6 +16,7 @@ import org.esa.beam.io.LutAccess;
 import org.esa.beam.meris.l2auxdata.Constants;
 import org.esa.beam.util.ProductUtils;
 
+import javax.media.jai.JAI;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
@@ -73,6 +74,7 @@ public class ScapeMOp extends ScapeMMerisBasisOp implements Constants {
     @Override
     public void initialize() throws OperatorException {
         readAuxdata();
+//        JAI.getDefaultInstance().getTileScheduler().setParallelism(1);          // test!!
 
         try {
             // todo: this is only for ONE test product to compare with LG dimap input!! check if start time is null.
@@ -113,7 +115,8 @@ public class ScapeMOp extends ScapeMMerisBasisOp implements Constants {
 
 //        smoothedVisibilityProduct = gapFilledVisibilityProduct;
         Map<String, Product> smoothInput = new HashMap<String, Product>(4);
-        smoothInput.put("source", gapFilledVisibilityProduct);
+        smoothInput.put("source", sourceProduct);
+        smoothInput.put("gapFilled", gapFilledVisibilityProduct);
         smoothedVisibilityProduct = GPF.createProduct(OperatorSpi.getOperatorAlias(ScapeMSmoothFillOp.class), GPF.NO_PARAMS, smoothInput);
 
         // convert visibility to AOT
@@ -146,6 +149,7 @@ public class ScapeMOp extends ScapeMMerisBasisOp implements Constants {
         ProductUtils.copyFlagBands(cloudProduct, targetProduct, true);
         ProductUtils.copyMasks(cloudProduct, targetProduct);
         ProductUtils.copyBand(ScapeMConstants.AOT550_BAND_NAME, aotProduct, atmosCorrProduct, true);
+        ProductUtils.copyBand(ScapeMConstants.VISIBILITY_BAND_NAME, smoothedVisibilityProduct, atmosCorrProduct, true);  // test
     }
 
     private void readAuxdata() {
