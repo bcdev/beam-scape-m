@@ -27,8 +27,8 @@ import java.util.Map;
  * @author Tonio Fincke, Olaf Danne
  */
 @OperatorMetadata(alias = "beam.scapeM", version = "1.0-SNAPSHOT",
-                  authors = "Tonio Fincke, Olaf Danne",
-                  copyright = "(c) 2013 Brockmann Consult",
+                  authors = "Luis Guanter, Olaf Danne",
+                  copyright = "(c) 2013 University of Valencia, Brockmann Consult",
                   description = "Operator for MERIS atmospheric correction with SCAPE-M algorithm.")
 public class ScapeMOp extends ScapeMMerisBasisOp implements Constants {
     public static final String VERSION = "1.0-SNAPSHOT";
@@ -149,7 +149,7 @@ public class ScapeMOp extends ScapeMMerisBasisOp implements Constants {
         ProductUtils.copyFlagBands(cloudProduct, targetProduct, true);
         ProductUtils.copyMasks(cloudProduct, targetProduct);
         ProductUtils.copyBand(ScapeMConstants.AOT550_BAND_NAME, aotProduct, atmosCorrProduct, true);
-        ProductUtils.copyBand(ScapeMConstants.VISIBILITY_BAND_NAME, smoothedVisibilityProduct, atmosCorrProduct, true);  // test
+//        ProductUtils.copyBand(ScapeMConstants.VISIBILITY_BAND_NAME, smoothedVisibilityProduct, atmosCorrProduct, true);  // test
     }
 
     private void readAuxdata() {

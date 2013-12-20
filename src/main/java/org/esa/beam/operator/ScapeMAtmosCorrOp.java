@@ -252,11 +252,16 @@ public class ScapeMAtmosCorrOp extends ScapeMMerisBasisOp implements Constants {
             if (outputRhoToa) {
                 for (int y = targetRect.y; y < targetRect.y + targetRect.height; y++) {
                     for (int x = targetRect.x; x < targetRect.x + targetRect.width; x++) {
+                        double cosSza = cosSzaArrayCell[x - targetRect.x][y - targetRect.y];
                         for (int bandId = 0; bandId < L1_BAND_NUM; bandId++) {
                             final boolean writeOptionalBands = (bandId == 1 && outputReflBand2);
                             if ((bandId != 1 && bandId != 10 && bandId != 14) || writeOptionalBands) {
                                 Tile rhoToaTile = rhoToaTiles[bandId];
-                                rhoToaTile.setSample(x, y, toaArrayCell[bandId][x - targetRect.x][y - targetRect.y]);
+                                // normalize to our rhoTOAs as e.g. from Rad2Refl...
+                                final double rhoToaFactor = Math.PI / (solirr[bandId] * cosSza);
+                                double toaArraySample =
+                                        toaArrayCell[bandId][x - targetRect.x][y - targetRect.y] * rhoToaFactor;
+                                rhoToaTile.setSample(x, y, toaArraySample);
                             }
                         }
                     }

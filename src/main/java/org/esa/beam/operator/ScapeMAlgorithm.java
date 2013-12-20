@@ -485,10 +485,6 @@ public class ScapeMAlgorithm implements Constants {
                 toaMinimization.setWeight(weight);
                 toaMinimization.setRhoVeg(ScapeMConstants.RHO_VEG_ALL[j]);
 
-                if (targetRect.x == 30 && targetRect.y == 0) {
-                    System.out.println();
-                }
-
                 // 'minim_TOA' is the function to be minimized by Powell!
                 // we have to  use this kind of interface:
                 // PowellTestFunction_1 function1 = new PowellTestFunction_1();
