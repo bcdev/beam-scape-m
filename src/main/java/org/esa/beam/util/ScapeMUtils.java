@@ -1,9 +1,15 @@
 package org.esa.beam.util;
 
+import org.esa.beam.framework.datamodel.Band;
+import org.esa.beam.framework.datamodel.TiePointGrid;
+import org.esa.beam.framework.gpf.OperatorException;
+import org.esa.beam.framework.gpf.Tile;
+
 import javax.media.jai.JAI;
 import javax.media.jai.RenderedOp;
 import javax.media.jai.operator.MeanDescriptor;
 import javax.media.jai.operator.SubtractDescriptor;
+import java.awt.*;
 import java.awt.image.RenderedImage;
 import java.awt.image.renderable.ParameterBlock;
 

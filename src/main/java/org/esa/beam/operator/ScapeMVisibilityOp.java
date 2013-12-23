@@ -15,8 +15,6 @@ import org.esa.beam.framework.gpf.annotations.OperatorMetadata;
 import org.esa.beam.framework.gpf.annotations.Parameter;
 import org.esa.beam.framework.gpf.annotations.SourceProduct;
 import org.esa.beam.framework.gpf.annotations.TargetProduct;
-import org.esa.beam.gpf.operators.meris.MerisBasisOp;
-import org.esa.beam.idepix.util.IdepixUtils;
 import org.esa.beam.meris.brr.HelperFunctions;
 import org.esa.beam.meris.l2auxdata.Constants;
 import org.esa.beam.util.ClearLandAndWaterPixelStrategy;
@@ -24,7 +22,6 @@ import org.esa.beam.util.ClearLandPixelStrategy;
 import org.esa.beam.util.ClearPixelStrategy;
 import org.esa.beam.util.ProductUtils;
 
-import javax.media.jai.BorderExtender;
 import java.awt.*;
 import java.util.Calendar;
 
@@ -90,7 +87,7 @@ public class ScapeMVisibilityOp extends ScapeMMerisBasisOp implements Constants 
         final Tile saaTile = getSourceTile(sourceProduct.getTiePointGrid(EnvisatConstants.MERIS_SUN_AZIMUTH_DS_NAME), targetRect);
         final Tile vaaTile = getSourceTile(sourceProduct.getTiePointGrid(EnvisatConstants.MERIS_VIEW_AZIMUTH_DS_NAME), targetRect);
 
-        Tile altitudeTile = geAltitudeTile(targetRect);
+        Tile altitudeTile = getAltitudeTile(targetRect, sourceProduct, useDEM);
 
         ClearPixelStrategy clearPixelStrategy;
         if (computeOverWater) {
@@ -181,55 +178,14 @@ public class ScapeMVisibilityOp extends ScapeMMerisBasisOp implements Constants 
 
     private void createTargetProduct() throws OperatorException {
         targetProduct = createCompatibleProduct(sourceProduct, "MER", "MER_L2");
-        targetProduct.setStartTime(sourceProduct.getStartTime());
-        targetProduct.setEndTime(sourceProduct.getEndTime());
 
         if (sourceProduct.getBand("dem_elevation") != null) {
             ProductUtils.copyBand("dem_elevation", sourceProduct, targetProduct, true);
         }
-
-        ProductUtils.copyMetadata(sourceProduct, targetProduct);
-        ProductUtils.copyFlagBands(sourceProduct, targetProduct, true);
-        ProductUtils.copyMasks(sourceProduct, targetProduct);
-
         Band visibilityBand = targetProduct.addBand(ScapeMConstants.VISIBILITY_BAND_NAME, ProductData.TYPE_FLOAT32);
         visibilityBand.setNoDataValue(ScapeMConstants.VISIBILITY_NODATA_VALUE);
         visibilityBand.setValidPixelExpression(ScapeMConstants.SCAPEM_VALID_EXPR);
-
-        if (sourceProduct.getProductType().contains("_RR")) {
-            targetProduct.setPreferredTileSize(ScapeMConstants.RR_PIXELS_PER_CELL, ScapeMConstants.RR_PIXELS_PER_CELL);
-        } else {
-            targetProduct.setPreferredTileSize(ScapeMConstants.FR_PIXELS_PER_CELL, ScapeMConstants.FR_PIXELS_PER_CELL);
-        }
     }
-
-    private Tile geAltitudeTile(Rectangle targetRect) {
-        Tile demTile = null;
-        Band demBand = null;
-        if (useDEM) {
-            demBand = sourceProduct.getBand("dem_elevation");
-            if (demBand != null) {
-                demTile = getSourceTile(demBand, targetRect);
-            }
-        } else {
-            Band frAltitudeBand = sourceProduct.getBand("altitude");
-            if (frAltitudeBand != null) {
-                // FR, FSG
-                demTile = getSourceTile(frAltitudeBand, targetRect);
-            } else {
-                // RR
-                TiePointGrid rrAltitudeTpg = sourceProduct.getTiePointGrid("dem_alt");
-                if (rrAltitudeTpg != null) {
-                    demTile = getSourceTile(rrAltitudeTpg, targetRect);
-                } else {
-                    throw new OperatorException
-                            ("Cannot attach altitude information from given input and configuration - please check!");
-                }
-            }
-        }
-        return demTile;
-    }
-
 
     public static class Spi extends OperatorSpi {
 

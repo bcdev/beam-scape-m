@@ -40,8 +40,6 @@ import java.util.Map;
                   description = "Operator for MERIS atmospheric correction with SCAPE-M algorithm: AC part.")
 public class ScapeMAtmosCorrOp extends ScapeMMerisBasisOp implements Constants {
 
-    // todo: maybe write abstract operator to combine this AC op with visibility op and get rid of duplicated code
-
     @Parameter(description = "ScapeM AOT Lookup table")
     private ScapeMLut scapeMLut;
 
@@ -57,6 +55,7 @@ public class ScapeMAtmosCorrOp extends ScapeMMerisBasisOp implements Constants {
                label = "Use GETASSE30 DEM",
                defaultValue = "false")
     private boolean useDEM;
+
 
     @Parameter(description = "If set, TOA reflectances are written to output product",
                label = "Write rhoTOA",
@@ -88,10 +87,6 @@ public class ScapeMAtmosCorrOp extends ScapeMMerisBasisOp implements Constants {
     private Band[] rhoToaBands;
     private Band flagBand;
 
-    private double szaMean;
-    private double vzaMean;
-    private double raaMean;
-
     public static final String RADIANCE_BAND_PREFIX = "radiance";
     public static final String REFL_BAND_PREFIX = "refl";
     public static final String TOA_BAND_PREFIX = "refl_toa";
@@ -106,18 +101,6 @@ public class ScapeMAtmosCorrOp extends ScapeMMerisBasisOp implements Constants {
             }
             elevationModel = demDescriptor.createDem(Resampling.BILINEAR_INTERPOLATION);
         }
-
-//        TiePointGrid szaGrid = sourceProduct.getTiePointGrid(EnvisatConstants.MERIS_SUN_ZENITH_DS_NAME);
-//        TiePointGrid vzaGrid = sourceProduct.getTiePointGrid(EnvisatConstants.MERIS_VIEW_ZENITH_DS_NAME);
-//        TiePointGrid saaGrid = sourceProduct.getTiePointGrid(EnvisatConstants.MERIS_SUN_AZIMUTH_DS_NAME);
-//        TiePointGrid vaaGrid = sourceProduct.getTiePointGrid(EnvisatConstants.MERIS_VIEW_AZIMUTH_DS_NAME);
-//
-//        szaMean = ScapeMUtils.getImageMeanValue(szaGrid.getSourceImage());
-//        vzaMean = ScapeMUtils.getImageMeanValue(vzaGrid.getSourceImage());
-//        RenderedOp azimDiffImage = ScapeMUtils.getImagesDifference(saaGrid.getSourceImage(), vaaGrid.getSourceImage());
-//        RenderedOp absAzimDiffImage = ScapeMUtils.getImagesAbsolute(azimDiffImage);
-//        raaMean = ScapeMUtils.getImageMeanValue(absAzimDiffImage);
-
         createTargetProduct();
     }
 
@@ -130,7 +113,7 @@ public class ScapeMAtmosCorrOp extends ScapeMMerisBasisOp implements Constants {
         final Tile saaTile = getSourceTile(sourceProduct.getTiePointGrid(EnvisatConstants.MERIS_SUN_AZIMUTH_DS_NAME), targetRect);
         final Tile vaaTile = getSourceTile(sourceProduct.getTiePointGrid(EnvisatConstants.MERIS_VIEW_AZIMUTH_DS_NAME), targetRect);
 
-        Tile altitudeTile = geAltitudeTile(targetRect);
+        Tile altitudeTile = getAltitudeTile(targetRect, sourceProduct, useDEM);
 
         ClearPixelStrategy clearPixelStrategy;
         if (computeOverWater) {
@@ -200,7 +183,6 @@ public class ScapeMAtmosCorrOp extends ScapeMMerisBasisOp implements Constants {
                         for (int k = 0; k < dimHurf; k++) {
                             double[][] fInt = LutAccess.interpolAtmParamLut(scapeMLut.getAtmParamLut(),
                                                                             vza, sza, phi,
-//                                                                            vza, szaMean, phi,
                                                                             scapeMLut.getHsfArrayLUT()[k],
                                                                             scapeMLut.getVisArrayLUT()[j],
                                                                             scapeMLut.getCwvArrayLUT()[i]);
@@ -218,7 +200,6 @@ public class ScapeMAtmosCorrOp extends ScapeMMerisBasisOp implements Constants {
             ScapeMResult acResult;
             double[][] fInt = LutAccess.interpolAtmParamLut(scapeMLut.getAtmParamLut(),
                                                             vza, sza, phi, hsurfMeanCell,
-//                                                            vza, szaMean, phi, hsurfMeanCell,
                                                             ScapeMConstants.VIS_INIT, ScapeMConstants.WV_INIT);
             double[][][] reflImage = ScapeMAlgorithm.getReflImage(fInt, toaArrayCell, cosSzaArrayCell);
 
@@ -276,10 +257,6 @@ public class ScapeMAtmosCorrOp extends ScapeMMerisBasisOp implements Constants {
     private void createTargetProduct() throws OperatorException {
         targetProduct = createCompatibleProduct(sourceProduct, "MER", "MER_L2");
 
-        ProductUtils.copyMetadata(sourceProduct, targetProduct);
-        ProductUtils.copyFlagBands(sourceProduct, targetProduct, true);
-        ProductUtils.copyMasks(sourceProduct, targetProduct);
-
         Band wvBand = targetProduct.addBand(ScapeMConstants.WATER_VAPOUR_BAND_NAME, ProductData.TYPE_FLOAT32);
         wvBand.setNoDataValue(ScapeMConstants.WATER_VAPOUR_NODATA_VALUE);
         wvBand.setUnit("g/cm^2");
@@ -296,18 +273,12 @@ public class ScapeMAtmosCorrOp extends ScapeMMerisBasisOp implements Constants {
 //        flagBand.setSampleCoding(flagCoding);
 //        targetProduct.getFlagCodingGroup().add(flagCoding);
 
-        if (sourceProduct.getProductType().contains("_RR")) {
-            targetProduct.setPreferredTileSize(ScapeMConstants.RR_PIXELS_PER_CELL,
-                                               ScapeMConstants.RR_PIXELS_PER_CELL);
-        } else {
-            targetProduct.setPreferredTileSize(ScapeMConstants.FR_PIXELS_PER_CELL,
-                                               ScapeMConstants.FR_PIXELS_PER_CELL);
-        }
     }
 
     private Band[] addBandGroup(String prefix) {
         Band[] bands = new Band[L1_BAND_NUM];
         for (int i = 0; i < L1_BAND_NUM; i++) {
+            // always skip bands 11 and 15, write band 2 optionally only
             final boolean writeOptionalBands = (i == 1 && outputReflBand2);
             if ((i != 1 && i != 10 && i != 14) || writeOptionalBands) {
                 Band targetBand = targetProduct.addBand(prefix + "_" + (i + 1), ProductData.TYPE_FLOAT32);
@@ -344,34 +315,6 @@ public class ScapeMAtmosCorrOp extends ScapeMMerisBasisOp implements Constants {
         }
         return flagCoding;
     }
-
-    private Tile geAltitudeTile(Rectangle targetRect) {
-        Tile demTile = null;
-        Band demBand;
-        if (useDEM) {
-            demBand = sourceProduct.getBand("dem_elevation");
-            if (demBand != null) {
-                demTile = getSourceTile(demBand, targetRect);
-            }
-        } else {
-            Band frAltitudeBand = sourceProduct.getBand("altitude");
-            if (frAltitudeBand != null) {
-                // FR, FSG
-                demTile = getSourceTile(frAltitudeBand, targetRect);
-            } else {
-                // RR
-                TiePointGrid rrAltitudeTpg = sourceProduct.getTiePointGrid("dem_alt");
-                if (rrAltitudeTpg != null) {
-                    demTile = getSourceTile(rrAltitudeTpg, targetRect);
-                } else {
-                    throw new OperatorException
-                            ("Cannot attach altitude information from given input and configuration - please check!");
-                }
-            }
-        }
-        return demTile;
-    }
-
 
     public static class Spi extends OperatorSpi {
 

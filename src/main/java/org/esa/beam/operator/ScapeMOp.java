@@ -10,13 +10,11 @@ import org.esa.beam.framework.gpf.annotations.OperatorMetadata;
 import org.esa.beam.framework.gpf.annotations.Parameter;
 import org.esa.beam.framework.gpf.annotations.SourceProduct;
 import org.esa.beam.framework.gpf.annotations.TargetProduct;
-import org.esa.beam.gpf.operators.meris.MerisBasisOp;
 import org.esa.beam.idepix.algorithms.scapem.FubScapeMOp;
 import org.esa.beam.io.LutAccess;
 import org.esa.beam.meris.l2auxdata.Constants;
 import org.esa.beam.util.ProductUtils;
 
-import javax.media.jai.JAI;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
@@ -73,19 +71,8 @@ public class ScapeMOp extends ScapeMMerisBasisOp implements Constants {
 
     @Override
     public void initialize() throws OperatorException {
+        checkProductStartStopTimes();
         readAuxdata();
-//        JAI.getDefaultInstance().getTileScheduler().setParallelism(1);          // test!!
-
-        try {
-            // todo: this is only for ONE test product to compare with LG dimap input!! check if start time is null.
-            if (sourceProduct.getStartTime() == null) {
-                sourceProduct.setStartTime(ProductData.UTC.parse("20060819", "yyyyMMdd"));
-                sourceProduct.setEndTime(ProductData.UTC.parse("20060819", "yyyyMMdd"));
-                //                int year = sourceProduct.getName()... // todo continue
-            }
-        } catch (Exception e) {
-            throw new OperatorException("could not add missing product start/end times: ", e);
-        }
 
         // get the cloud product from Idepix...
         Map<String, Product> idepixInput = new HashMap<String, Product>(4);
@@ -106,21 +93,18 @@ public class ScapeMOp extends ScapeMMerisBasisOp implements Constants {
         cellVisibilityProduct = GPF.createProduct(OperatorSpi.getOperatorAlias(ScapeMVisibilityOp.class), visParams, cellVisibilityInput);
 
         // fill gaps...
-//        gapFilledVisibilityProduct = cellVisibilityProduct;
         try {
             gapFilledVisibilityProduct = ScapeMGapFill.gapFill(cellVisibilityProduct);
         } catch (IOException e) {
             throw new OperatorException(e.getMessage(), e);
         }
 
-//        smoothedVisibilityProduct = gapFilledVisibilityProduct;
         Map<String, Product> smoothInput = new HashMap<String, Product>(4);
         smoothInput.put("source", sourceProduct);
         smoothInput.put("gapFilled", gapFilledVisibilityProduct);
         smoothedVisibilityProduct = GPF.createProduct(OperatorSpi.getOperatorAlias(ScapeMSmoothFillOp.class), GPF.NO_PARAMS, smoothInput);
 
         // convert visibility to AOT
-//        aotProduct = smoothedVisibilityProduct;
         Map<String, Product> aotConvertInput = new HashMap<String, Product>(4);
         aotConvertInput.put("source", sourceProduct);
         aotConvertInput.put("visibility", smoothedVisibilityProduct);
@@ -144,20 +128,32 @@ public class ScapeMOp extends ScapeMMerisBasisOp implements Constants {
         atmosCorrProduct = GPF.createProduct(OperatorSpi.getOperatorAlias(ScapeMAtmosCorrOp.class),
                                              atmosCorrParams, atmosCorrInput);
 
-//        targetProduct = aotProduct;
         targetProduct = atmosCorrProduct;
         ProductUtils.copyFlagBands(cloudProduct, targetProduct, true);
         ProductUtils.copyMasks(cloudProduct, targetProduct);
         ProductUtils.copyBand(ScapeMConstants.AOT550_BAND_NAME, aotProduct, atmosCorrProduct, true);
-//        ProductUtils.copyBand(ScapeMConstants.VISIBILITY_BAND_NAME, smoothedVisibilityProduct, atmosCorrProduct, true);  // test
+    }
+
+    private void checkProductStartStopTimes() {
+        try {
+            if (sourceProduct.getStartTime() == null || sourceProduct.getEndTime() == null) {
+                // we assume a regular L1b product name such as
+                // MER_RR__1PNBCM20060819_073317_000000542050_00264_23364_0735.N1:
+                final String ymd = sourceProduct.getName().substring(14,22);
+                final String hms = sourceProduct.getName().substring(23,29);
+                sourceProduct.setStartTime(ProductData.UTC.parse(ymd + " " + hms, "yyyyMMdd HHmmss"));
+                sourceProduct.setEndTime(ProductData.UTC.parse(ymd + " " + hms, "yyyyMMdd HHmmss"));
+            }
+        } catch (Exception e) {
+            throw new OperatorException("could not add missing product start/end times: ", e);
+        }
     }
 
     private void readAuxdata() {
         try {
             scapeMLut = new ScapeMLut(LutAccess.getAtmParmsLookupTable());
         } catch (IOException e) {
-            // todo
-            throw new OperatorException(e.getMessage());
+            throw new OperatorException("Cannot read atmospheric LUT: ", e);
         }
     }
 

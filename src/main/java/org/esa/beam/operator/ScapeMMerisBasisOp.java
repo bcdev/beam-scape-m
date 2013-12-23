@@ -1,8 +1,16 @@
 package org.esa.beam.operator;
 
+import org.esa.beam.ScapeMConstants;
+import org.esa.beam.framework.datamodel.Band;
 import org.esa.beam.framework.datamodel.Product;
+import org.esa.beam.framework.datamodel.TiePointGrid;
 import org.esa.beam.framework.gpf.Operator;
+import org.esa.beam.framework.gpf.OperatorException;
+import org.esa.beam.framework.gpf.Tile;
+import org.esa.beam.framework.gpf.annotations.Parameter;
 import org.esa.beam.util.ProductUtils;
+
+import java.awt.*;
 
 /**
  * A copy of MerisBasisOp, but suppressing the 'copyAllTiePoints' option
@@ -25,6 +33,20 @@ public abstract class ScapeMMerisBasisOp extends Operator {
 
         Product targetProduct = new Product(name, type, sceneWidth, sceneHeight);
         copyProductTrunk(sourceProduct, targetProduct);
+
+        targetProduct.setStartTime(sourceProduct.getStartTime());
+        targetProduct.setEndTime(sourceProduct.getEndTime());
+
+        ProductUtils.copyMetadata(sourceProduct, targetProduct);
+        ProductUtils.copyFlagBands(sourceProduct, targetProduct, true);
+        ProductUtils.copyMasks(sourceProduct, targetProduct);
+
+        if (sourceProduct.getProductType().contains("_RR")) {
+            targetProduct.setPreferredTileSize(ScapeMConstants.RR_PIXELS_PER_CELL, ScapeMConstants.RR_PIXELS_PER_CELL);
+        } else {
+            targetProduct.setPreferredTileSize(ScapeMConstants.FR_PIXELS_PER_CELL, ScapeMConstants.FR_PIXELS_PER_CELL);
+        }
+
         return targetProduct;
     }
 
@@ -64,5 +86,33 @@ public abstract class ScapeMMerisBasisOp extends Operator {
         targetProduct.setStartTime(sourceProduct.getStartTime());
         targetProduct.setEndTime(sourceProduct.getEndTime());
     }
+
+    Tile getAltitudeTile(Rectangle targetRect, Product sourceProduct, boolean useDEM) {
+        Tile demTile = null;
+        Band demBand;
+        if (useDEM) {
+            demBand = sourceProduct.getBand("dem_elevation");
+            if (demBand != null) {
+                demTile = getSourceTile(demBand, targetRect);
+            }
+        } else {
+            Band frAltitudeBand = sourceProduct.getBand("altitude");
+            if (frAltitudeBand != null) {
+                // FR, FSG
+                demTile = getSourceTile(frAltitudeBand, targetRect);
+            } else {
+                // RR
+                TiePointGrid rrAltitudeTpg = sourceProduct.getTiePointGrid("dem_alt");
+                if (rrAltitudeTpg != null) {
+                    demTile = getSourceTile(rrAltitudeTpg, targetRect);
+                } else {
+                    throw new OperatorException
+                            ("Cannot attach altitude information from given input and configuration - please check!");
+                }
+            }
+        }
+        return demTile;
+    }
+
 
 }

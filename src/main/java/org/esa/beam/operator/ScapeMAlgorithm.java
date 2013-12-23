@@ -31,8 +31,6 @@ public class ScapeMAlgorithm implements Constants {
 
     /**
      * Determines if cell is regarded as 'clear land' : > 35% must not be water or cloud
-     * <p/>
-     * // todo describe parameters
      *
      * @param rect               - cell rectangle
      * @param clearPixelStrategy - clearPixelStrategy
@@ -186,25 +184,6 @@ public class ScapeMAlgorithm implements Constants {
         for (int y = rect.y; y < rect.y + rect.height; y++) {
             for (int x = rect.x; x < rect.x + rect.width; x++) {
                 toa[x - rect.x][y - rect.y] = radianceTile.getSampleDouble(x, y) * solFactor;
-
-//                GeoPos geoPos = null;
-//                if (geoCoding.canGetGeoPos() && !(Double.isNaN(radianceTile.getSampleDouble(x, y)) && radianceTile.getSampleDouble(x, y) > 0.0)) {
-//                    geoPos = geoCoding.getGeoPos(new PixelPos(x, y), geoPos);
-//                    try {
-//                        if (!classifier.isWater(geoPos.lat, geoPos.lon)) {
-//                            toa[x - rect.x][y - rect.y] = radianceTile.getSampleDouble(x, y) * solFactor;
-//                        } else {
-//                            toa[x - rect.x][y - rect.y] = radianceTile.getSampleDouble(x, y) * solFactor;
-////                            toa[x - rect.x][y - rect.y] = Double.NaN;   // todo: IDL does not do this,
-////                            but we think it is strange to use water pixels e.g. for minimum detection
-////                            which is used for the land retrievals
-//                        }
-//                    } catch (IOException ignore) {
-//                    }
-//                } else {
-//                    toa[x - rect.x][y - rect.y] = radianceTile.getSampleDouble(x, y) * solFactor;
-////                    toa[x - rect.x][y - rect.y] = Double.NaN;      // todo see above
-//                }
             }
         }
         return toa;
@@ -280,6 +259,8 @@ public class ScapeMAlgorithm implements Constants {
                     visVal = computeRefinedVisibility(visVal, refPixels, vza, sza, raa, hsurfMeanCell, wvInit, cosSzaMeanCell, scapeMLut,
                                                       targetRect);
                 }
+            } else {
+                // nothing to do - keep visVal as it was before
             }
         } else {
             // nothing to do - keep visVal as it was before
@@ -367,8 +348,7 @@ public class ScapeMAlgorithm implements Constants {
                 }
             }
         } else {
-            //                valid_flg = 0
-            return null;     // todo: check if this is ok
+            return null;
         }
 
         return refPixels;
@@ -576,7 +556,7 @@ public class ScapeMAlgorithm implements Constants {
      * @param hsurfArray
      * @param cosSzaArray
      * @param cosSzaMeanCell
-     *@param reflImg
+     * @param reflImg
      * @param radianceTile13
      * @param radianceTile14
      * @param scapeMLut

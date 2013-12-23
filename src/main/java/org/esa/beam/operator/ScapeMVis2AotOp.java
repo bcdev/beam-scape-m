@@ -14,7 +14,6 @@ import org.esa.beam.framework.gpf.annotations.OperatorMetadata;
 import org.esa.beam.framework.gpf.annotations.Parameter;
 import org.esa.beam.framework.gpf.annotations.SourceProduct;
 import org.esa.beam.framework.gpf.annotations.TargetProduct;
-import org.esa.beam.gpf.operators.meris.MerisBasisOp;
 import org.esa.beam.meris.l2auxdata.Constants;
 import org.esa.beam.util.ProductUtils;
 
@@ -32,16 +31,16 @@ import java.awt.*;
         description = "Operator for visibility to AOT conversion.")
 public class ScapeMVis2AotOp extends ScapeMMerisBasisOp implements Constants {
 
+    @Parameter(description = "If set, use GETASSE30 DEM, otherwise get altitudes from product TPGs",
+               label = "Use GETASSE30 DEM",
+               defaultValue = "false")
+    private boolean useDEM;
+
     @SourceProduct(alias = "source")
     private Product sourceProduct;
 
     @SourceProduct(alias = "visibility")
     private Product visibilityProduct;
-
-    @Parameter(description = "If set, use GETASSE30 DEM, otherwise get altitudes from product TPGs",
-               label = "Use GETASSE30 DEM",
-               defaultValue = "false")
-    private boolean useDEM;
 
     @Parameter(description = "ScapeM AOT Lookup table")
     private ScapeMLut scapeMLut;
@@ -74,7 +73,7 @@ public class ScapeMVis2AotOp extends ScapeMMerisBasisOp implements Constants {
         final Rectangle targetRect = targetTile.getRectangle();
         final GeoCoding geoCoding = sourceProduct.getGeoCoding();
 
-        Tile altitudeTile = geAltitudeTile(targetRect);
+        Tile altitudeTile = getAltitudeTile(targetRect, sourceProduct, useDEM);
 
         Band visibilityBand = visibilityProduct.getBand(ScapeMConstants.VISIBILITY_BAND_NAME);
         Tile visibilityTile = getSourceTile(visibilityBand, targetRect);
@@ -109,52 +108,11 @@ public class ScapeMVis2AotOp extends ScapeMMerisBasisOp implements Constants {
 
     private void createTargetProduct() throws OperatorException {
         targetProduct = createCompatibleProduct(sourceProduct, "MER", "MER_L2");
-        targetProduct.setStartTime(sourceProduct.getStartTime());
-        targetProduct.setEndTime(sourceProduct.getEndTime());
-
-        ProductUtils.copyMetadata(sourceProduct, targetProduct);
-        ProductUtils.copyFlagBands(sourceProduct, targetProduct, true);
-        ProductUtils.copyMasks(sourceProduct, targetProduct);
 
         Band aot550Band = targetProduct.addBand(ScapeMConstants.AOT550_BAND_NAME, ProductData.TYPE_FLOAT32);
         aot550Band.setNoDataValue(ScapeMConstants.AOT_NODATA_VALUE);
         aot550Band.setValidPixelExpression(ScapeMConstants.SCAPEM_VALID_EXPR);
-
-        if (sourceProduct.getProductType().contains("_RR")) {
-            targetProduct.setPreferredTileSize(ScapeMConstants.RR_PIXELS_PER_CELL, ScapeMConstants.RR_PIXELS_PER_CELL);
-        } else {
-            targetProduct.setPreferredTileSize(ScapeMConstants.FR_PIXELS_PER_CELL, ScapeMConstants.FR_PIXELS_PER_CELL);
-        }
     }
-
-    // todo: duplicated code, move to utils
-    private Tile geAltitudeTile(Rectangle targetRect) {
-        Tile demTile = null;
-        Band demBand;
-        if (useDEM) {
-            demBand = sourceProduct.getBand("dem_elevation");
-            if (demBand != null) {
-                demTile = getSourceTile(demBand, targetRect);
-            }
-        } else {
-            Band frAltitudeBand = sourceProduct.getBand("altitude");
-            if (frAltitudeBand != null) {
-                // FR, FSG
-                demTile = getSourceTile(frAltitudeBand, targetRect);
-            } else {
-                // RR
-                TiePointGrid rrAltitudeTpg = sourceProduct.getTiePointGrid("dem_alt");
-                if (rrAltitudeTpg != null) {
-                    demTile = getSourceTile(rrAltitudeTpg, targetRect);
-                } else {
-                    throw new OperatorException
-                            ("Cannot attach altitude information from given input and configuration - please check!");
-                }
-            }
-        }
-        return demTile;
-    }
-
 
     public static class Spi extends OperatorSpi {
 
