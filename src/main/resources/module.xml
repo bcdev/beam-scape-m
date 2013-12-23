@@ -46,14 +46,14 @@
             <longDescr>Provides MERIS atmospheric correction with SCAPE-M algorithm.</longDescr>
             <mnemonic/>
             <parent>tools</parent>
-            <helpId>scapeM</helpId>
+            <helpId>ScapeMProcessorPlugIn</helpId>
         </action>
     </extension>
 
     <extension point="beam-ui:helpSets">
         <helpSet>
             <parent>beam-help</parent>
-            <path>doc/help/scape-m.hs</path>
+            <path>doc/help/ScapeMProcessor.hs</path>
         </helpSet>
     </extension>
 

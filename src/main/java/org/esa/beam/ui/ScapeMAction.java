@@ -14,16 +14,23 @@ import java.awt.*;
  */
 public class ScapeMAction extends AbstractVisatAction {
 
+    private DefaultSingleTargetProductDialog dialog;
+
     @Override
     public void actionPerformed(CommandEvent event) {
-        final String version = ScapeMOp.VERSION;
+
         final String helpId = event.getCommand().getHelpId();
-        final DefaultSingleTargetProductDialog productDialog = new DefaultSingleTargetProductDialog(
-                "beam.scapeM", getAppContext(),
-                "SCAPE-M Atmospheric Correction - v" + version, helpId);
-        productDialog.setTargetProductNameSuffix("_SCAPEM");
-        productDialog.getJDialog().getContentPane().setPreferredSize(new Dimension(500, 400));
-        productDialog.show();
+        if (dialog == null) {
+            dialog = new DefaultSingleTargetProductDialog(
+                    "beam.scapeM",
+                    getAppContext(),
+                    "SCAPE-M Atmospheric Correction - v" + ScapeMOp.VERSION,
+//                    "ScapeMProcessorPlugIn");
+                    helpId);
+            dialog.setTargetProductNameSuffix("_SCAPEM");
+            dialog.getJDialog().getContentPane().setPreferredSize(new Dimension(500, 400));
+        }
+        dialog.show();
     }
 
 }
