@@ -14,11 +14,9 @@ import org.esa.beam.framework.gpf.Tile;
  */
 public class ClearLandAndWaterPixelStrategy implements ClearPixelStrategy {
 
-    private final Band cloudFlagsBand;
     private Tile tile;
 
-    public ClearLandAndWaterPixelStrategy(Band cloudFlagsBand) {
-        this.cloudFlagsBand = cloudFlagsBand;
+    public ClearLandAndWaterPixelStrategy() {
     }
 
     @Override

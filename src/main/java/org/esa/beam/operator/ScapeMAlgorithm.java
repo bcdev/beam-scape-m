@@ -2,7 +2,6 @@ package org.esa.beam.operator;
 
 
 import Stats.LinFit;
-import com.bc.ceres.core.ProgressMonitor;
 import org.apache.commons.math3.analysis.solvers.BrentSolver;
 import org.apache.commons.math3.exception.NoBracketingException;
 import org.esa.beam.ScapeMConstants;
@@ -34,7 +33,7 @@ public class ScapeMAlgorithm implements Constants {
      *
      * @param rect               - cell rectangle
      * @param clearPixelStrategy - clearPixelStrategy
-     * @return boolean
+     * @return boolean - cell is clear land or not
      */
     static boolean isCellClearLand(Rectangle rect,
                                    ClearPixelStrategy clearPixelStrategy,
@@ -54,9 +53,8 @@ public class ScapeMAlgorithm implements Constants {
      * Returns the elevation mean value (in km) over all land pixels in a 30x30km cell
      *
      * @param hSurfCell          - hsurf single values
-     * @param clearPixelStrategy
-     * @return hsurf cell mean value
-     * @throws Exception
+     * @param clearPixelStrategy - strategy how clear pixels are determined
+     * @return double - the cell mean value
      */
     static double getHsurfMeanCell(double[][] hSurfCell,
                                    Rectangle rectangle,
@@ -78,6 +76,15 @@ public class ScapeMAlgorithm implements Constants {
         return hsurfMean / hsurfCount;    // km
     }
 
+    /**
+     * Returns the elevation array in a 30x30km cell
+     *
+     * @param rect - the tile rectangle
+     * @param geoCoding - the geo coding
+     * @param demTile - the DEM tile
+     * @param scapeMLut - the atmospheric look-up table
+     * @return double[][] - the elevation array
+     */
     static double[][] getHsurfArrayCell(Rectangle rect,
                                         GeoCoding geoCoding,
                                         Tile demTile,
@@ -99,6 +106,15 @@ public class ScapeMAlgorithm implements Constants {
         return hSurf;
     }
 
+    /**
+     * Returns the elevation array in a 30x30km cell
+     *
+     * @param rect - the tile rectangle
+     * @param geoCoding - the geo coding
+     * @param elevationModel - the elevation model
+     * @param scapeMLut - the atmospheric look-up table
+     * @return double[][] - the elevation array
+     */
     static double[][] getHsurfArrayCell(Rectangle rect,
                                         GeoCoding geoCoding,
                                         ElevationModel elevationModel,
@@ -125,6 +141,13 @@ public class ScapeMAlgorithm implements Constants {
         return hSurf;
     }
 
+    /**
+     * Returns the cos(SZA) mean value over all land pixels in a 30x30km cell
+     *
+     * @param cosSzaCell          - hsurf single values
+     * @param clearPixelStrategy - strategy how clear pixels are determined
+     * @return double - the cell mean value
+     */
     static double getCosSzaMeanCell(double[][] cosSzaCell,
                                     Rectangle rect,
                                     ClearPixelStrategy clearPixelStrategy) {
@@ -145,6 +168,12 @@ public class ScapeMAlgorithm implements Constants {
         return cosSzaMean / cosSzaCount;
     }
 
+    /**
+     * Returns the cos(SZA) array in a 30x30km cell
+     *
+     * @param rect - the tile rectangle
+     * @return double[][] - the cos(SZA) array
+     */
     static double[][] getCosSzaArrayCell(Rectangle rect,
                                          Tile szaTile) {
 
@@ -159,6 +188,12 @@ public class ScapeMAlgorithm implements Constants {
         return cosSza;
     }
 
+    /**
+     * Returns the TOA minimum value in a 30x30km cell
+     *
+     * @param toaArrayCell - the TOA array
+     * @return double - the cell minimum value
+     */
     static double getToaMinCell(double[][] toaArrayCell) {
         double toaMin = Double.MAX_VALUE;
         for (int y = 0; y < toaArrayCell[0].length; y++) {
@@ -173,6 +208,14 @@ public class ScapeMAlgorithm implements Constants {
         return toaMin;
     }
 
+    /**
+     * Returns the TOA array in a 30x30km cell
+     *
+     * @param radianceTile - the input radiances
+     * @param rect - the tile rectangle
+     * @param doy - the day of year
+     * @return double[][] - the TOA array
+     */
     static double[][] getToaArrayCell(Tile radianceTile,
                                       Rectangle rect,
                                       int doy) {
@@ -202,8 +245,7 @@ public class ScapeMAlgorithm implements Constants {
      * @param cosSzaArrayCell      - cosSza singe values
      * @param cosSzaMeanCell       - cosSza mean cell value
      * @param cellIsClear45Percent - true if cell is > 45% clea land
-     * @param targetRect
-     * @return visibility
+     * @return double - the visibility
      */
     static double getCellVisibility(double[][][] toaArrayCell,
                                     double[] toaMinCell, double vza, double sza, double raa,
@@ -212,7 +254,7 @@ public class ScapeMAlgorithm implements Constants {
                                     double[][] cosSzaArrayCell, // mus_il_sub
                                     double cosSzaMeanCell, // mus_il
                                     boolean cellIsClear45Percent,
-                                    ScapeMLut scapeMLut, Rectangle targetRect) {
+                                    ScapeMLut scapeMLut) {
 
         final int nVis = scapeMLut.getVisArrayLUT().length;
         final double[] step = {1.0, 0.1};
@@ -256,8 +298,8 @@ public class ScapeMAlgorithm implements Constants {
                     }
                 }
                 if (!invalid) {
-                    visVal = computeRefinedVisibility(visVal, refPixels, vza, sza, raa, hsurfMeanCell, wvInit, cosSzaMeanCell, scapeMLut,
-                                                      targetRect);
+                    visVal = computeRefinedVisibility(visVal, refPixels, vza, sza, raa, hsurfMeanCell, wvInit,
+                                                      cosSzaMeanCell, scapeMLut);
                 }
             } else {
                 // nothing to do - keep visVal as it was before
@@ -280,7 +322,7 @@ public class ScapeMAlgorithm implements Constants {
      * @param cosSzaArrayCell - cosSza single values
      * @param cosSzaMeanCell  - cosSza mean cell values
      * @param toaArrayCell    - toa single values
-     * @return double[][] refPixels = double[selectedPixels][NUM_REF_PIXELS]
+     * @return double[][]     - the reference pixels, refPixels = double[selectedPixels][NUM_REF_PIXELS]
      */
     static double[][] extractRefPixels(int bandId, double[][] hsurfArrayCell, double hsurfMeanCell,
                                        double[][] cosSzaArrayCell, double cosSzaMeanCell, double[][][] toaArrayCell) {
@@ -354,7 +396,15 @@ public class ScapeMAlgorithm implements Constants {
         return refPixels;
     }
 
-    static double getCellAot550(double visibility, double hsurfArrayCell, ScapeMLut scapeMLut) {
+    /**
+     * Returns the AOT at 550nm for a 30x30km cell
+     *
+     * @param visibility - the visibility
+     * @param hsurf - the elevation
+     * @param scapeMLut - the atmospheric look-up table
+     * @return double - the AOT
+     */
+    static double getCellAot550(double visibility, double hsurf, ScapeMLut scapeMLut) {
 
         double aot550;
 
@@ -376,7 +426,6 @@ public class ScapeMAlgorithm implements Constants {
             aCoeff[i][1] = linFit.getB();
         }
 
-        final double hsurf = hsurfArrayCell;
         int hsfIndexToUse = -1;
         for (int i = 0; i < scapeMLut.getHsfArrayLUT().length; i++) {
             if (hsurf >= scapeMLut.getHsfArrayLUT()[i]) {
@@ -397,131 +446,15 @@ public class ScapeMAlgorithm implements Constants {
 
     }
 
-    private static double computeRefinedVisibility(double visValInput, double[][][] refPixels, double vza, double sza, double raa,
-                                                   double hsurfMeanCell, double wvInit, double cosSzaMeanCell,
-                                                   ScapeMLut scapeMLut,
-                                                   Rectangle targetRect) {
-
-        final int numSpec = 2;
-        final int numX = numSpec * ScapeMConstants.NUM_REF_PIXELS + 1;
-
-        double[] powellInputInit = new double[numX];
-        double visLim = visValInput;
-
-        double visRefined;
-
-        double[][] lpw = new double[L1_BAND_NUM][scapeMLut.getVisArrayLUT().length];
-        double[][] etw = new double[L1_BAND_NUM][scapeMLut.getVisArrayLUT().length];
-        double[][] sab = new double[L1_BAND_NUM][scapeMLut.getVisArrayLUT().length];
-
-        for (int i = 0; i < scapeMLut.getVisArrayLUT().length; i++) {
-            double visArrayVal = Math.max(scapeMLut.getVisMin(), Math.min(scapeMLut.getVisMax(), scapeMLut.getVisArrayLUT()[i]));
-            double[][] fInt = LutAccess.interpolAtmParamLut(scapeMLut.getAtmParamLut(), vza, sza, raa, hsurfMeanCell, visArrayVal, wvInit);
-            for (int bandId = 0; bandId < L1_BAND_NUM; bandId++) {
-                lpw[bandId][i] = fInt[bandId][0];
-                etw[bandId][i] = fInt[bandId][1] * cosSzaMeanCell + fInt[bandId][2];
-                sab[bandId][i] = fInt[bandId][4];
-            }
-        }
-
-        for (int j = 0; j < ScapeMConstants.NUM_REF_PIXELS; j++) {
-            final double ndvi = (refPixels[12][0][j] - refPixels[7][0][j]) / (refPixels[12][0][j] + refPixels[7][0][j]);
-            final double ndviMod = 1.3 * ndvi + 0.25;
-            powellInputInit[numSpec * j] = Math.max(ndviMod, 0.0);
-            powellInputInit[numSpec * j + 1] = Math.max(1.0 - ndviMod, 0.0);
-        }
-        powellInputInit[numX - 1] = 23.0;
-
-        double[][] xi = new double[numX][numX];
-        for (int i = 0; i < numX; i++) {
-            xi[i][i] = 1.0;
-        }
-
-        final int limRefSets = 1;    // for AOT_time_flg eq 1, see .inp file
-        final int nEMVeg = 3;    // for AOT_time_flg eq 1, see .inp file
-
-        final int nRefSets = Math.min(refPixels[0].length, limRefSets);
-
-        double[] visArr = new double[nRefSets];
-        double[] fminArr = new double[nEMVeg];
-        double[] visArrAux = new double[nEMVeg];
-
-        ToaMinimization toaMinimization = new ToaMinimization(visLim, scapeMLut.getVisArrayLUT(), lpw, etw, sab, 0.0);
-        final double[][] xiInput = xi.clone();
-        for (int i = 0; i < nRefSets; i++) {
-            double[][] refSetPixels = new double[L1_BAND_NUM][ScapeMConstants.NUM_REF_PIXELS];
-            for (int j = 0; j < L1_BAND_NUM; j++) {
-                for (int k = 0; k < ScapeMConstants.NUM_REF_PIXELS; k++) {
-                    refSetPixels[j][k] = refPixels[j][i][k];
-                }
-            }
-            toaMinimization.setRefPixels(refSetPixels);
-
-            for (int j = 0; j < nEMVeg; j++) {
-                double[] xVector = powellInputInit.clone();
-                xVector[10] = visLim + 0.01;
-
-                double[] weight = new double[]{2., 2., 1.5, 1.5, 1.};
-                toaMinimization.setWeight(weight);
-                toaMinimization.setRhoVeg(ScapeMConstants.RHO_VEG_ALL[j]);
-
-                // 'minim_TOA' is the function to be minimized by Powell!
-                // we have to  use this kind of interface:
-                // PowellTestFunction_1 function1 = new PowellTestFunction_1();
-                // double fmin = Powell.fmin(xVector, xi, ftol, function1);
-                double fmin = Powell.fmin(xVector,
-                                          xiInput,
-                                          ScapeMConstants.POWELL_FTOL,
-                                          toaMinimization);
-                double[] chiSqr = toaMinimization.getChiSquare();
-                double chiSqrMean = ScapeMUtils.getMeanDouble1D(chiSqr);
-
-                int chiSqrOutsideRangeCount = 0;
-                for (int k = 0; k < chiSqr.length; k++) {
-                    if (chiSqr[k] > 2.0 * chiSqrMean) {
-                        chiSqrOutsideRangeCount++;
-                    }
-                }
-                if (chiSqrOutsideRangeCount > 0) {
-                    for (int k = 0; k < chiSqrOutsideRangeCount; k++) {
-                        weight[k] = 0.0;
-                    }
-                    toaMinimization.setWeight(weight);
-                    fmin = Powell.fmin(xVector,
-                                       xiInput,
-                                       ScapeMConstants.POWELL_FTOL,
-                                       toaMinimization);
-                }
-                visArrAux[j] = xVector[numX - 1];
-                fminArr[j] = fmin / (5.0 - chiSqrOutsideRangeCount);
-            }
-            final int fMinIndex = ScapeMUtils.getMinimumIndexDouble1D(fminArr);
-            visArr[i] = visArrAux[fMinIndex];
-        }
-
-        if (nRefSets > 1) {
-            double visMean = ScapeMUtils.getMeanDouble1D(visArr);
-            double visStdev = ScapeMUtils.getStdevDouble1D(visArr);
-
-            List<Double> visArrInsideStdevList = new ArrayList<Double>();
-            for (int i = 0; i < nRefSets; i++) {
-                if (Math.abs(visArr[i] - visMean) <= 1.5 * visStdev) {
-                    visArrInsideStdevList.add(visArr[i]);
-                }
-            }
-            Double[] visArrInsideStdev = visArrInsideStdevList.toArray(new Double[visArrInsideStdevList.size()]);
-            if (visArrInsideStdev.length > 0) {
-                visRefined = ScapeMUtils.getMeanDouble1D(visArrInsideStdev);
-            } else {
-                visRefined = visMean;
-            }
-        } else {
-            visRefined = visArr[0];
-        }
-        return visRefined;
-    }
-
-    public static double[][][] getReflImage(double[][] fInt,
+    /**
+     * Returns the 'reflectance images' used for atmospheric correction
+     *
+     * @param fInt - the LUT output parameters
+     * @param toaArray - the TOA cell arrays for all wavelengths
+     * @param cosSzaArrayCell  - the cos(SZA) cell array
+     * @return double[][][] - the 'reflectance images': cell arrays for all wavelengths
+     */
+    static double[][][] getReflImage(double[][] fInt,
                                             double[][][] toaArray,
                                             double[][] cosSzaArrayCell) {
 
@@ -546,34 +479,39 @@ public class ScapeMAlgorithm implements Constants {
         return reflImage;
     }
 
+
+
+
     /**
-     * // todo: describe
      *
-     * @param rect
-     * @param visibilityTile
-     * @param clearPixelStrategy
-     * @param toaArrayCell
-     * @param hsurfArray
-     * @param cosSzaArray
-     * @param cosSzaMeanCell
-     * @param reflImg
-     * @param radianceTile13
-     * @param radianceTile14
-     * @param scapeMLut
-     * @param lpw
-     * @param e0tw
-     * @param ediftw
-     * @param tDirD
-     * @param sab
-*          @return
+     *
+     * @param rect - the target rectangle
+     * @param visibilityTile - the visibility tile
+     * @param clearPixelStrategy - strategy how clear pixels are determined
+     * @param toaArrayCell - the TOA cell array
+     * @param hsurfArray - the elevation cell array
+     * @param cosSzaArray - the cos(SZA) cell array
+     * @param cosSzaMeanCell - the cos(SZA) cell mean value
+     * @param reflImg - the 'reflectance images' for all wavelengths
+     * @param radianceTile13 - radiance tile at band 13
+     * @param radianceTile14 - radiance tile at band 14
+     * @param scapeMLut - the atmospheric look-up table
+     * @param lpw - the 'lpw' term of radiative transfer equation
+     * @param e0tw - the 'e0tw' term of radiative transfer equation
+     * @param ediftw - the 'ediftw' term of radiative transfer equation
+     * @param tDirD - the 'tDirD' term of radiative transfer equation
+     * @param sab - the 'sab' term of radiative transfer equation
+     *
+     * @return ScapeMResult: holding water vapour and atmospheric corrected reflectances (see {@link ScapeMResult})
      */
-    public static ScapeMResult computeAcResult(Rectangle rect,
+    static ScapeMResult computeAcResult(Rectangle rect,
                                                Tile visibilityTile,
                                                ClearPixelStrategy clearPixelStrategy,
                                                double[][][] toaArrayCell,
                                                double[][] hsurfArray,
                                                double[][] cosSzaArray,
-                                               double cosSzaMeanCell, double[][][] reflImg,
+                                               double cosSzaMeanCell,
+                                               double[][][] reflImg,
                                                Tile radianceTile13,
                                                Tile radianceTile14,
                                                ScapeMLut scapeMLut,
@@ -738,4 +676,130 @@ public class ScapeMAlgorithm implements Constants {
         }
         return scapeMResult;
     }
+
+    // computes the 'refined' visibility value for the given cell:
+    private static double computeRefinedVisibility(double visLim,
+                                                   double[][][] refPixels,
+                                                   double vza, double sza, double raa,
+                                                   double hsurfMeanCell,
+                                                   double wvInit,
+                                                   double cosSzaMeanCell,
+                                                   ScapeMLut scapeMLut) {
+
+        final int numSpec = 2;
+        final int numX = numSpec * ScapeMConstants.NUM_REF_PIXELS + 1;
+
+        double[] powellInputInit = new double[numX];
+
+        double visRefined;
+
+        double[][] lpw = new double[L1_BAND_NUM][scapeMLut.getVisArrayLUT().length];
+        double[][] etw = new double[L1_BAND_NUM][scapeMLut.getVisArrayLUT().length];
+        double[][] sab = new double[L1_BAND_NUM][scapeMLut.getVisArrayLUT().length];
+
+        for (int i = 0; i < scapeMLut.getVisArrayLUT().length; i++) {
+            double visArrayVal = Math.max(scapeMLut.getVisMin(), Math.min(scapeMLut.getVisMax(), scapeMLut.getVisArrayLUT()[i]));
+            double[][] fInt = LutAccess.interpolAtmParamLut(scapeMLut.getAtmParamLut(), vza, sza, raa, hsurfMeanCell, visArrayVal, wvInit);
+            for (int bandId = 0; bandId < L1_BAND_NUM; bandId++) {
+                lpw[bandId][i] = fInt[bandId][0];
+                etw[bandId][i] = fInt[bandId][1] * cosSzaMeanCell + fInt[bandId][2];
+                sab[bandId][i] = fInt[bandId][4];
+            }
+        }
+
+        for (int j = 0; j < ScapeMConstants.NUM_REF_PIXELS; j++) {
+            final double ndvi = (refPixels[12][0][j] - refPixels[7][0][j]) / (refPixels[12][0][j] + refPixels[7][0][j]);
+            final double ndviMod = 1.3 * ndvi + 0.25;
+            powellInputInit[numSpec * j] = Math.max(ndviMod, 0.0);
+            powellInputInit[numSpec * j + 1] = Math.max(1.0 - ndviMod, 0.0);
+        }
+        powellInputInit[numX - 1] = 23.0;
+
+        double[][] xi = new double[numX][numX];
+        for (int i = 0; i < numX; i++) {
+            xi[i][i] = 1.0;
+        }
+
+        final int limRefSets = 1;    // for AOT_time_flg eq 1, see .inp file
+        final int nEMVeg = 3;    // for AOT_time_flg eq 1, see .inp file
+
+        final int nRefSets = Math.min(refPixels[0].length, limRefSets);
+
+        double[] visArr = new double[nRefSets];
+        double[] fminArr = new double[nEMVeg];
+        double[] visArrAux = new double[nEMVeg];
+
+        ToaMinimization toaMinimization = new ToaMinimization(visLim, scapeMLut.getVisArrayLUT(), lpw, etw, sab, 0.0);
+        final double[][] xiInput = xi.clone();
+        for (int i = 0; i < nRefSets; i++) {
+            double[][] refSetPixels = new double[L1_BAND_NUM][ScapeMConstants.NUM_REF_PIXELS];
+            for (int j = 0; j < L1_BAND_NUM; j++) {
+                System.arraycopy(refPixels[j][i], 0, refSetPixels[j], 0, ScapeMConstants.NUM_REF_PIXELS);
+            }
+            toaMinimization.setRefPixels(refSetPixels);
+
+            for (int j = 0; j < nEMVeg; j++) {
+                double[] xVector = powellInputInit.clone();
+                xVector[10] = visLim + 0.01;
+
+                double[] weight = new double[]{2., 2., 1.5, 1.5, 1.};
+                toaMinimization.setWeight(weight);
+                toaMinimization.setRhoVeg(ScapeMConstants.RHO_VEG_ALL[j]);
+
+                // 'minim_TOA' is the function to be minimized by Powell!
+                // we have to  use this kind of interface:
+                // PowellTestFunction_1 function1 = new PowellTestFunction_1();
+                // double fmin = Powell.fmin(xVector, xi, ftol, function1);
+                double fmin = Powell.fmin(xVector,
+                                          xiInput,
+                                          ScapeMConstants.POWELL_FTOL,
+                                          toaMinimization);
+                double[] chiSqr = toaMinimization.getChiSquare();
+                double chiSqrMean = ScapeMUtils.getMeanDouble1D(chiSqr);
+
+                int chiSqrOutsideRangeCount = 0;
+                for (double aChiSqrVal : chiSqr) {
+                    if (aChiSqrVal > 2.0 * chiSqrMean) {
+                        chiSqrOutsideRangeCount++;
+                    }
+                }
+                if (chiSqrOutsideRangeCount > 0) {
+                    for (int k = 0; k < chiSqrOutsideRangeCount; k++) {
+                        weight[k] = 0.0;
+                    }
+                    toaMinimization.setWeight(weight);
+                    fmin = Powell.fmin(xVector,
+                                       xiInput,
+                                       ScapeMConstants.POWELL_FTOL,
+                                       toaMinimization);
+                }
+                visArrAux[j] = xVector[numX - 1];
+                fminArr[j] = fmin / (5.0 - chiSqrOutsideRangeCount);
+            }
+            final int fMinIndex = ScapeMUtils.getMinimumIndexDouble1D(fminArr);
+            visArr[i] = visArrAux[fMinIndex];
+        }
+
+        if (nRefSets > 1) {
+            double visMean = ScapeMUtils.getMeanDouble1D(visArr);
+            double visStdev = ScapeMUtils.getStdevDouble1D(visArr);
+
+            List<Double> visArrInsideStdevList = new ArrayList<Double>();
+            for (int i = 0; i < nRefSets; i++) {
+                if (Math.abs(visArr[i] - visMean) <= 1.5 * visStdev) {
+                    visArrInsideStdevList.add(visArr[i]);
+                }
+            }
+            Double[] visArrInsideStdev = visArrInsideStdevList.toArray(new Double[visArrInsideStdevList.size()]);
+            if (visArrInsideStdev.length > 0) {
+                visRefined = ScapeMUtils.getMeanDouble1D(visArrInsideStdev);
+            } else {
+                visRefined = visMean;
+            }
+        } else {
+            visRefined = visArr[0];
+        }
+        return visRefined;
+    }
+
 }

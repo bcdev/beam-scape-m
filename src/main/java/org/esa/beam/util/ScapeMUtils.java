@@ -1,15 +1,9 @@
 package org.esa.beam.util;
 
-import org.esa.beam.framework.datamodel.Band;
-import org.esa.beam.framework.datamodel.TiePointGrid;
-import org.esa.beam.framework.gpf.OperatorException;
-import org.esa.beam.framework.gpf.Tile;
-
 import javax.media.jai.JAI;
 import javax.media.jai.RenderedOp;
 import javax.media.jai.operator.MeanDescriptor;
 import javax.media.jai.operator.SubtractDescriptor;
-import java.awt.*;
 import java.awt.image.RenderedImage;
 import java.awt.image.renderable.ParameterBlock;
 
@@ -20,6 +14,12 @@ import java.awt.image.renderable.ParameterBlock;
  */
 public class ScapeMUtils {
 
+    /**
+     * Provides the sum of all doubles of an 1D array
+     *
+     * @param src - the source array
+     * @return the sum
+     */
     public static double getSumDouble1D(Double[] src) {
         double sum = 0.0;
         for (Double d : src) {
@@ -28,14 +28,32 @@ public class ScapeMUtils {
         return sum;
     }
 
+    /**
+     * Provides the mean of all doubles of an 1D array
+     *
+     * @param src - the source array
+     * @return the mean
+     */
     public static double getMeanDouble1D(double[] src) {
         return getSumDouble1D(src) / src.length;
     }
 
+    /**
+     * Provides the mean of all doubles of an 1D array
+     *
+     * @param src - the source array
+     * @return the mean
+     */
     public static double getMeanDouble1D(Double[] src) {
         return getSumDouble1D(src) / src.length;
     }
 
+    /**
+     * Provides the minimum of all doubles of an 1D array
+     *
+     * @param src - the source array
+     * @return the minimum
+     */
     public static double getMinimumDouble1D(double[] src) {
         double min = Double.MAX_VALUE;
         for (double d : src) {
@@ -46,6 +64,12 @@ public class ScapeMUtils {
         return min;
     }
 
+    /**
+     * Provides the index of the minimum of all doubles of an 1D array
+     *
+     * @param src - the source array
+     * @return the array index
+     */
     public static int getMinimumIndexDouble1D(double[] src) {
         double min = Double.MAX_VALUE;
         int minIndex = -1;
@@ -58,6 +82,12 @@ public class ScapeMUtils {
         return minIndex;
     }
 
+    /**
+     * Provides the standard deviation of all doubles of an 1D array
+     *
+     * @param src - the source array
+     * @return the standard deviation
+     */
     public static double getStdevDouble1D(double[] src) {
         double diffSqr = 0.0;
         double mean = getMeanDouble1D(src);
@@ -65,14 +95,6 @@ public class ScapeMUtils {
             diffSqr += Math.pow(d - mean, 2.0);
         }
         return Math.sqrt(diffSqr/(src.length-1));
-    }
-
-    private static double getSumDouble1D(double[] src) {
-        double sum = 0.0;
-        for (double d : src) {
-            sum += d;
-        }
-        return sum;
     }
 
     // todo: check if still needed
@@ -96,5 +118,14 @@ public class ScapeMUtils {
         pb.addSource(image1);
         return JAI.create("absolute", pb);
     }
+
+    private static double getSumDouble1D(double[] src) {
+        double sum = 0.0;
+        for (double d : src) {
+            sum += d;
+        }
+        return sum;
+    }
+
 
 }

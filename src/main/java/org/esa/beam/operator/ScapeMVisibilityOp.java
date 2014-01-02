@@ -3,7 +3,10 @@ package org.esa.beam.operator;
 import com.bc.ceres.core.ProgressMonitor;
 import org.esa.beam.ScapeMConstants;
 import org.esa.beam.dataio.envisat.EnvisatConstants;
-import org.esa.beam.framework.datamodel.*;
+import org.esa.beam.framework.datamodel.Band;
+import org.esa.beam.framework.datamodel.GeoCoding;
+import org.esa.beam.framework.datamodel.Product;
+import org.esa.beam.framework.datamodel.ProductData;
 import org.esa.beam.framework.dataop.dem.ElevationModel;
 import org.esa.beam.framework.dataop.dem.ElevationModelDescriptor;
 import org.esa.beam.framework.dataop.dem.ElevationModelRegistry;
@@ -91,9 +94,9 @@ public class ScapeMVisibilityOp extends ScapeMMerisBasisOp implements Constants 
 
         ClearPixelStrategy clearPixelStrategy;
         if (computeOverWater) {
-            clearPixelStrategy = new ClearLandAndWaterPixelStrategy(cloudProduct.getBandAt(0));
+            clearPixelStrategy = new ClearLandAndWaterPixelStrategy();
         } else {
-            clearPixelStrategy = new ClearLandPixelStrategy(cloudProduct.getBandAt(0));
+            clearPixelStrategy = new ClearLandPixelStrategy();
         }
         clearPixelStrategy.setTile(getSourceTile(cloudProduct.getBandAt(0), targetRect));
 
@@ -155,7 +158,7 @@ public class ScapeMVisibilityOp extends ScapeMMerisBasisOp implements Constants 
                                                                             cosSzaArrayCell,
                                                                             cosSzaMeanCell,
                                                                             cellIsClear45Percent,
-                                                                            scapeMLut, targetRect);
+                                                                            scapeMLut);
 
                 setCellVisibilitySamples(targetTile, targetRect, visibility);
             } catch (Exception e) {

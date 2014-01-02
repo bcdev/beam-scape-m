@@ -4,7 +4,7 @@ package org.esa.beam.math;
  * This class provides a 1D minimisation of a function in a given interval
  * (see Num. Recip., pp. 402)
  *
- * @author Andreas Heckel (USwansea), Olaf Danne
+ * @author Andreas Heckel (Swansea University), Olaf Danne
  */
 public class Brent {
 

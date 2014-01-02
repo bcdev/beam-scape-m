@@ -3,7 +3,7 @@ package org.esa.beam.math;
 /**
  * This class provides a method for initially bracketing a minimum.
  *
- * @author Andreas Heckel (USwansea), Olaf Danne
+ * @author Andreas Heckel (Swansea University), Olaf Danne
  */
 public class Mnbrak {
 

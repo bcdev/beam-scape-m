@@ -47,7 +47,6 @@ public class ToaMinimization implements MvFunction, Constants {
         double[] surfRefl = new double[L1_BAND_NUM];
         double[][] toa = new double[L1_BAND_NUM][ScapeMConstants.NUM_REF_PIXELS];
 
-
         double vis = x[10];
 
         final double visUpperLim = visArrayLUT[visArrayLUT.length - 1];
@@ -102,7 +101,7 @@ public class ToaMinimization implements MvFunction, Constants {
             return toaMin;
 
         } else {
-            return 5.E+8; // ???   // todo: check suitable 'invalid' value
+            return 5.E+8; // todo: this is from breadboard, check more appropriate 'invalid' value
         }
     }
 

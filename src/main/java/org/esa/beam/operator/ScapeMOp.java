@@ -51,7 +51,7 @@ public class ScapeMOp extends ScapeMMerisBasisOp implements Constants {
                defaultValue = "false")
     private boolean outputReflBand2;
 
-    @SourceProduct(description = "MERIS L1B product")
+    @SourceProduct(alias = "MERIS_L1b", description = "MERIS L1B product")
     private Product sourceProduct;
 
     @TargetProduct

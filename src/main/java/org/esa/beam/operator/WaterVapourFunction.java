@@ -10,8 +10,8 @@ import org.apache.commons.math3.analysis.UnivariateFunction;
 public class WaterVapourFunction implements UnivariateFunction {
 
     int wvInf;
-    double[] reflPix;      // [2]
-    double[] wvGr2;      // [6]
+    double[] reflPix;        // [2]
+    double[] wvGr2;          // [6]
     double[][][] parAtmH;    // [3][2][6]
     double merisRatio;
     private double wvP;
@@ -43,8 +43,6 @@ public class WaterVapourFunction implements UnivariateFunction {
                         reflPix[i] * parAtmInit[1][i] / (Math.PI * (1.0 - reflPix[i] * parAtmInit[2][i]));
             }
             chiSqrResult = merisRatio - lToa0[1] / lToa0[0];
-        } else {
-            // todo: check if needed
         }
 
         return chiSqrResult;
@@ -58,10 +56,6 @@ public class WaterVapourFunction implements UnivariateFunction {
         return wvP;
     }
 
-    public double[] getReflPix() {
-        return reflPix;
-    }
-
     public void setReflPix(double[] reflPix) {
         this.reflPix = reflPix;
     }
@@ -72,10 +66,6 @@ public class WaterVapourFunction implements UnivariateFunction {
 
     public void setParAtmH(double[][][] parAtmH) {
         this.parAtmH = parAtmH;
-    }
-
-    public void setParAtmHValue(int i, int j, int k, double parAtmHValue) {
-        parAtmH[i][j][k] = parAtmHValue;
     }
 
     public void setMerisRatio(double merisRatio) {

@@ -1,17 +1,17 @@
 package org.esa.beam.math;
 
 /**
- * Interface providing a function.
+ * Interface providing a uni-variate function.
  *
- * @author Andreas Heckel (USwansea), Olaf Danne
+ * @author Andreas Heckel (Swansea University), Olaf Danne
  */
 public interface Function {
 
     /**
-     *  Univariate function definition
+     *  Uni-variate function definition
      *
-     *@param  x  - input value
-     *@return      return value
+     * @param  x  - input value
+     * @return f -  return value
      */
     double f(double x);
 }

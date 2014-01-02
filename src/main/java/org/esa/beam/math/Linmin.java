@@ -4,7 +4,7 @@ package org.esa.beam.math;
  * This class provides the 'linmin' implementation used within Powell minimisation.
  * (see Num. Recip., pp. 413)
  *
- * @author Andreas Heckel (USwansea), Olaf Danne
+ * @author Andreas Heckel (Swansea University), Olaf Danne
  */
 class Linmin implements Function {
 
@@ -18,7 +18,7 @@ class Linmin implements Function {
 
 
     /**
-     * put your documentation comment here
+     * empty constructor
      */
     Linmin() {
     }

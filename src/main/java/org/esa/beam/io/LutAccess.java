@@ -19,35 +19,6 @@ import java.nio.ByteOrder;
 public class LutAccess {
     private static final String atmParamLutPath = "SCAPEM_LUT_MERIS";    // currently we have only this one
 
-    public static ImageInputStream getAtmParamLutData() {
-        return openStream(atmParamLutPath);
-    }
-
-    private static ImageInputStream openStream(String path) {
-        BufferedInputStream bufferedInputStream = new BufferedInputStream(openResource(path));
-        ImageInputStream imageInputStream = new MemoryCacheImageInputStream(bufferedInputStream);
-        imageInputStream.setByteOrder(ByteOrder.LITTLE_ENDIAN);
-        return imageInputStream;
-    }
-
-    private static InputStream openResource(String path) {
-        InputStream inputStream = LutAccess.class.getResourceAsStream(path);
-        if (inputStream == null) {
-            throw new IllegalArgumentException("Could not find resource: " + path);
-        }
-        return inputStream;
-    }
-
-    public static float[] readDimension(ImageInputStream iis) throws IOException {
-        return readDimension(iis, iis.readInt());
-    }
-
-    public static float[] readDimension(ImageInputStream iis, int len) throws IOException {
-        float[] dim = new float[len];
-        iis.readFully(dim, 0, len);
-        return dim;
-    }
-
     /**
      * reads an Atmospheric parameters LUT (IDL breadboard procedure 'read_lut')
      * * This LUT is equivalent to the original IDL LUT:
@@ -150,4 +121,35 @@ public class LutAccess {
         }
         return result;
     }
+
+    public static ImageInputStream getAtmParamLutData() {
+        return openStream(atmParamLutPath);
+    }
+
+    public static float[] readDimension(ImageInputStream iis) throws IOException {
+        return readDimension(iis, iis.readInt());
+    }
+
+    public static float[] readDimension(ImageInputStream iis, int len) throws IOException {
+        float[] dim = new float[len];
+        iis.readFully(dim, 0, len);
+        return dim;
+    }
+
+
+    private static ImageInputStream openStream(String path) {
+        BufferedInputStream bufferedInputStream = new BufferedInputStream(openResource(path));
+        ImageInputStream imageInputStream = new MemoryCacheImageInputStream(bufferedInputStream);
+        imageInputStream.setByteOrder(ByteOrder.LITTLE_ENDIAN);
+        return imageInputStream;
+    }
+
+    private static InputStream openResource(String path) {
+        InputStream inputStream = LutAccess.class.getResourceAsStream(path);
+        if (inputStream == null) {
+            throw new IllegalArgumentException("Could not find resource: " + path);
+        }
+        return inputStream;
+    }
+
 }

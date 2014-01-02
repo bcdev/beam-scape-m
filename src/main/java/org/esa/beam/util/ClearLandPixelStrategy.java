@@ -16,11 +16,9 @@ import java.awt.*;
  */
 public class ClearLandPixelStrategy implements ClearPixelStrategy{
 
-    private final Band cloudFlagsBand;
     private Tile tile;
 
-    public ClearLandPixelStrategy(Band cloudFlagsBand) {
-        this.cloudFlagsBand = cloudFlagsBand;
+    public ClearLandPixelStrategy() {
 
     }
 

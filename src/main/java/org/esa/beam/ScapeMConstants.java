@@ -54,7 +54,6 @@ public class ScapeMConstants {
     public static final double VISIBILITY_NODATA_VALUE = 0.0;
 
     public static final double AOT_NODATA_VALUE = 0.0;
-    public static final double HSURF_NODATA_VALUE = 0.0;
     public static final String SCAPEM_VALID_EXPR = "!l1_flags.INVALID";
 
     public static final String VISIBILITY_BAND_NAME = "cell_visibility";
@@ -64,7 +63,6 @@ public class ScapeMConstants {
     public static final String WATER_VAPOUR_BAND_NAME = "water_vapour";
 
     public static final double WATER_VAPOUR_NODATA_VALUE = 0.0;
-    public static final double REFL_NODATA_VALUE = 0.0;
 
     public static final int CLOUD_INVALID_BIT = 0;
     public static final int CLOUD_CERTAIN_BIT = 1;

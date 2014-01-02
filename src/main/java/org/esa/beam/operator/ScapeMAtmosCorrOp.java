@@ -117,9 +117,9 @@ public class ScapeMAtmosCorrOp extends ScapeMMerisBasisOp implements Constants {
 
         ClearPixelStrategy clearPixelStrategy;
         if (computeOverWater) {
-            clearPixelStrategy = new ClearLandAndWaterPixelStrategy(cloudProduct.getBandAt(0));
+            clearPixelStrategy = new ClearLandAndWaterPixelStrategy();
         } else {
-            clearPixelStrategy = new ClearLandPixelStrategy(cloudProduct.getBandAt(0));
+            clearPixelStrategy = new ClearLandPixelStrategy();
         }
         clearPixelStrategy.setTile(getSourceTile(cloudProduct.getBandAt(0), targetRect));
 

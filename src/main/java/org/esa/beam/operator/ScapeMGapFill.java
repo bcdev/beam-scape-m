@@ -13,7 +13,79 @@ import java.awt.image.WritableRaster;
 import java.io.IOException;
 import java.util.Map;
 
+/**
+ * Class providing the visibility gap filling as used in IDL breadboard
+ *
+ * @author Tonio Fincke, Olaf Danne
+ */
 public class ScapeMGapFill {
+
+    /**
+     * Provides the visibility product with gap-filled source image
+     *
+     * @param product - input product with visibility source image usually containing gaps
+     * @return the product with gap-filled source image
+     * @throws IOException
+     */
+    public static Product gapFill(Product product) throws IOException {
+        final Band visibilityBand = product.getBand(ScapeMConstants.VISIBILITY_BAND_NAME);
+        final double noDataValue = visibilityBand.getNoDataValue();
+        final int tileWidth = (int) product.getPreferredTileSize().getWidth();
+        final int tileHeight = (int) product.getPreferredTileSize().getHeight();
+        final int numberOfCellColumns = (int) Math.ceil(product.getSceneRasterWidth() * 1.0 / tileWidth);
+        final int numberOfCellRows = (int) Math.ceil(product.getSceneRasterHeight() * 1.0 / tileHeight);
+        float[][] cellSamples = new float[numberOfCellColumns][numberOfCellRows];
+        float areaMean = 0;
+        int numberOfValidCells = 0;
+        for (int y = 0; y < numberOfCellRows; y++) {
+            for (int x = 0; x < numberOfCellColumns; x++) {
+                final float cellValue = visibilityBand.getSampleFloat(x * tileWidth, y * tileHeight);
+                if (Double.isNaN(cellValue) || cellValue == 0.0f) {
+                    cellSamples[x][y] = (float) noDataValue;
+                } else {
+                    cellSamples[x][y] = cellValue;
+                }
+                if (cellValue != noDataValue) {
+                    areaMean += cellValue;
+                    numberOfValidCells++;
+                }
+            }
+        }
+        float[][] updatedCellValues = new float[numberOfCellColumns][numberOfCellRows];
+        areaMean /= numberOfValidCells;
+        for (int y = 0; y < numberOfCellRows; y++) {
+            for (int x = 0; x < numberOfCellColumns; x++) {
+                float cellSample = cellSamples[x][y];
+                if (cellSample == noDataValue) {
+                    float interpolationValue;
+                    final int minimumDistanceToEdge = getMinimumDistanceToEdge(x, y,
+                                                                               numberOfCellColumns, numberOfCellRows);
+                    if (minimumDistanceToEdge >= 2) {
+                        interpolationValue = interpolateOverRegion(cellSamples, x, y, 2, noDataValue);
+                    } else if (minimumDistanceToEdge == 1) {
+                        interpolationValue = interpolateOverRegion(cellSamples, x, y, 1, noDataValue);
+                    } else {
+                        interpolationValue = interpolateAtCornerOrBorder(numberOfCellColumns, numberOfCellRows,
+                                                                         cellSamples, x, y, noDataValue);
+                    }
+                    if (interpolationValue == 0 && minimumDistanceToEdge >= 3) {
+                        interpolationValue = interpolateOverRegion(cellSamples, x, y, 3, noDataValue);
+                    }
+                    if (interpolationValue == 0) {
+                        interpolationValue = areaMean;
+                    }
+                    updatedCellValues[x][y] = interpolationValue;
+                } else {
+                    updatedCellValues[x][y] = cellSamples[x][y];
+                }
+            }
+        }
+        ScapeMGapFilledImage image = new ScapeMGapFilledImage(DataBuffer.TYPE_FLOAT, product.getSceneRasterWidth(), product.getSceneRasterHeight(),
+                                                              new Dimension(tileWidth, tileHeight), null, ResolutionLevel.MAXRES,
+                                                              updatedCellValues);
+        visibilityBand.setSourceImage(image);
+        return product;
+    }
 
     /* package local for testing*/
     static int getMinimumDistanceToEdge(int x, int y, int numberOfCellColumns, int numberOfCellRows) {
@@ -71,65 +143,6 @@ public class ScapeMGapFill {
         return mean;
     }
 
-    public static Product gapFill(Product product) throws IOException {
-        final Band visibilityBand = product.getBand(ScapeMConstants.VISIBILITY_BAND_NAME);
-        final double noDataValue = visibilityBand.getNoDataValue();
-        final int tileWidth = (int) product.getPreferredTileSize().getWidth();
-        final int tileHeight = (int) product.getPreferredTileSize().getHeight();
-        final int numberOfCellColumns = (int) Math.ceil(product.getSceneRasterWidth() * 1.0 / tileWidth);
-        final int numberOfCellRows = (int) Math.ceil(product.getSceneRasterHeight() * 1.0 / tileHeight);
-        float[][] cellSamples = new float[numberOfCellColumns][numberOfCellRows];
-        float areaMean = 0;
-        int numberOfValidCells = 0;
-        for (int y = 0; y < numberOfCellRows; y++) {
-            for (int x = 0; x < numberOfCellColumns; x++) {
-                final float cellValue = visibilityBand.getSampleFloat(x * tileWidth, y * tileHeight);
-                if (Double.isNaN(cellValue) || cellValue == 0.0f) {
-                    cellSamples[x][y] = (float) noDataValue;
-                } else {
-                    cellSamples[x][y] = cellValue;
-                }
-                if (cellValue != noDataValue) {
-                    areaMean += cellValue;
-                    numberOfValidCells++;
-                }
-            }
-        }
-        float[][] updatedCellValues = new float[numberOfCellColumns][numberOfCellRows];
-        areaMean /= numberOfValidCells;
-        for (int y = 0; y < numberOfCellRows; y++) {
-            for (int x = 0; x < numberOfCellColumns; x++) {
-                float cellSample = cellSamples[x][y];
-                if (cellSample == noDataValue) {
-                    float interpolationValue = 0;
-                    final int minimumDistanceToEdge = getMinimumDistanceToEdge(x, y,
-                                                                               numberOfCellColumns, numberOfCellRows);
-                    if (minimumDistanceToEdge >= 2) {
-                        interpolationValue = interpolateOverRegion(cellSamples, x, y, 2, noDataValue);
-                    } else if (minimumDistanceToEdge == 1) {
-                        interpolationValue = interpolateOverRegion(cellSamples, x, y, 1, noDataValue);
-                    } else {
-                        interpolationValue = interpolateAtCornerOrBorder(numberOfCellColumns, numberOfCellRows,
-                                                                         cellSamples, x, y, noDataValue);
-                    }
-                    if (interpolationValue == 0 && minimumDistanceToEdge >= 3) {
-                        interpolationValue = interpolateOverRegion(cellSamples, x, y, 3, noDataValue);
-                    }
-                    if (interpolationValue == 0) {
-                        interpolationValue = areaMean;
-                    }
-                    updatedCellValues[x][y] = interpolationValue;
-                } else {
-                    updatedCellValues[x][y] = cellSamples[x][y];
-                }
-            }
-        }
-        ScapeMGapFilledImage image = new ScapeMGapFilledImage(DataBuffer.TYPE_FLOAT, product.getSceneRasterWidth(), product.getSceneRasterHeight(),
-                                                  new Dimension(tileWidth, tileHeight), null, ResolutionLevel.MAXRES,
-                                                  updatedCellValues);
-        visibilityBand.setSourceImage(image);
-        return product;
-    }
 
 
     private static class ScapeMGapFilledImage extends SingleBandedOpImage {

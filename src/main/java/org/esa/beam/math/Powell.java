@@ -1,10 +1,10 @@
 package org.esa.beam.math;
 
 /**
- * This class provides a multivariate mimimisation
+ * This class provides a multivariate minimization
  * (see Num. Recip., pp. 412)
  *
- * @author Andreas Heckel (USwansea), Olaf Danne
+ * @author Andreas Heckel (Swansea University), Olaf Danne
  */
 public class Powell {
 

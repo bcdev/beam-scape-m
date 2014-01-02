@@ -2,6 +2,8 @@ package org.esa.beam.util;
 
 import org.esa.beam.framework.datamodel.Band;
 import org.esa.beam.framework.datamodel.ProductData;
+import org.esa.beam.framework.gpf.Operator;
+import org.esa.beam.framework.gpf.OperatorException;
 import org.esa.beam.framework.gpf.Tile;
 import org.esa.beam.framework.gpf.internal.TileImpl;
 import org.esa.beam.jai.ResolutionLevel;
@@ -30,18 +32,18 @@ public class ClearPixelStrategyTest {
     @Test
     public void testThatPixelsCanBeInvalid() throws Exception {
         Band bitBand = createBitBand();
+        Tile bitTile = new TileImpl(bitBand, bitBand.getSourceImage().getData());
 
-        ClearPixelStrategy onlyLandStrategy = new ClearLandPixelStrategy(bitBand);
+        ClearPixelStrategy onlyLandStrategy = new ClearLandPixelStrategy();
+        onlyLandStrategy.setTile(bitTile);
         boolean[] onlyLandExpectedResults = new boolean[]{true, false, false, false, true, false, false, false,
                 false, false, false, false, false, false, false, false};
-        ClearPixelStrategy landAndWaterStrategy = new ClearLandAndWaterPixelStrategy(bitBand);
+        ClearPixelStrategy landAndWaterStrategy = new ClearLandAndWaterPixelStrategy();
+        landAndWaterStrategy.setTile(bitTile);
         boolean[] landAndWaterExpectedResults = new boolean[]{true, false, false, false, true, false, false, false,
                 true, false, false, false, true, false, false, false};
 
         int count = 0;
-        Tile bitTile = new TileImpl(bitBand, bitBand.getSourceImage().getData());
-        onlyLandStrategy.setTile(bitTile);
-        landAndWaterStrategy.setTile(bitTile);
         for(int y = 0; y < bitBand.getSceneRasterHeight(); y++) {
             for(int x = 0; x < bitBand.getSceneRasterWidth(); x++) {
                 boolean valid = onlyLandStrategy.isValid(x, y);

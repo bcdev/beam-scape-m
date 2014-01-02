@@ -25,7 +25,6 @@ public class ScapeMAction extends AbstractVisatAction {
                     "beam.scapeM",
                     getAppContext(),
                     "SCAPE-M Atmospheric Correction - v" + ScapeMOp.VERSION,
-//                    "ScapeMProcessorPlugIn");
                     helpId);
             dialog.setTargetProductNameSuffix("_SCAPEM");
             dialog.getJDialog().getContentPane().setPreferredSize(new Dimension(500, 400));

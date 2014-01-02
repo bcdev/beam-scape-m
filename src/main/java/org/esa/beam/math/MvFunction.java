@@ -1,16 +1,17 @@
 package org.esa.beam.math;
 
 /**
- * @author Andreas Heckel (USwansea), Olaf Danne
+ * Interface providing a multi-variate function.
+ *
+ * @author Andreas Heckel (Swansea University), Olaf Danne
  */
 public interface MvFunction {
 
     /**
-     *  multivariate function
+     *  Multi-variate function definition
      *
      * @param  x - point at which function should be calculated
-     * @return     value of the function at x
-     * @throws   UnsupportedOperationException -
+     * @return f - value of the function at x
      */
     double f(double[] x);
 

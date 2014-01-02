@@ -21,7 +21,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Operator for finning right and lower edges of smoothed product.
+ * Operator for filling right and lower edges of smoothed product.
  *
  * @author Tonio Fincke, Olaf Danne
  */
@@ -105,9 +105,6 @@ public class ScapeMSmoothFillOp extends ScapeMMerisBasisOp implements Constants 
 
         try {
 
-            if (targetRect.x == 1080 && targetRect.y == 300) {
-                System.out.println("targetRect = " + targetRect);
-            }
             boolean isRightEdge = (targetRect.x >= rightEdge);
 
             if (isRightEdge) {

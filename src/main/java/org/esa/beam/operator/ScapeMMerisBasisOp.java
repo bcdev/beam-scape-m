@@ -7,7 +7,6 @@ import org.esa.beam.framework.datamodel.TiePointGrid;
 import org.esa.beam.framework.gpf.Operator;
 import org.esa.beam.framework.gpf.OperatorException;
 import org.esa.beam.framework.gpf.Tile;
-import org.esa.beam.framework.gpf.annotations.Parameter;
 import org.esa.beam.util.ProductUtils;
 
 import java.awt.*;
@@ -22,9 +21,9 @@ public abstract class ScapeMMerisBasisOp extends Operator {
     /**
      * creates a new product with the same size
      *
-     * @param sourceProduct
-     * @param name
-     * @param type
+     * @param sourceProduct - the source product
+     * @param name - product name
+     * @param type - product type
      * @return targetProduct
      */
     public Product createCompatibleProduct(Product sourceProduct, String name, String type) {
@@ -53,8 +52,8 @@ public abstract class ScapeMMerisBasisOp extends Operator {
     /**
      * Copies basic information for a MERIS product to the target product
      *
-     * @param sourceProduct
-     * @param targetProduct
+     * @param sourceProduct - the source product
+     * @param targetProduct - the target product
      */
     public void copyProductTrunk(Product sourceProduct,
                                  Product targetProduct) {
@@ -63,10 +62,45 @@ public abstract class ScapeMMerisBasisOp extends Operator {
     }
 
     /**
+     * Provides the altitude tile from band or TPG
+     *
+     * @param targetRect - the target rectangle
+     * @param sourceProduct - the source product
+     * @param useDEM - if set, altitude is taken from 'dem_elevation' band
+     * @return the altitude tile (may be null)
+     */
+    Tile getAltitudeTile(Rectangle targetRect, Product sourceProduct, boolean useDEM) {
+        Tile altitudeTile = null;
+        Band demBand;
+        if (useDEM) {
+            demBand = sourceProduct.getBand("dem_elevation");
+            if (demBand != null) {
+                altitudeTile = getSourceTile(demBand, targetRect);
+            }
+        } else {
+            Band frAltitudeBand = sourceProduct.getBand("altitude");
+            if (frAltitudeBand != null) {
+                // FR, FSG
+                altitudeTile = getSourceTile(frAltitudeBand, targetRect);
+            } else {
+                // RR
+                TiePointGrid rrAltitudeTpg = sourceProduct.getTiePointGrid("dem_alt");
+                if (rrAltitudeTpg != null) {
+                    altitudeTile = getSourceTile(rrAltitudeTpg, targetRect);
+                } else {
+                    throw new OperatorException
+                            ("Cannot attach altitude information from given input and configuration - please check!");
+                }
+            }
+        }
+        return altitudeTile;
+    }
+
+    /**
      * Copies the tie point data.
      *
-     * @param sourceProduct
-     * @param targetProduct
+     * @param sourceProduct - the source product
+     * @param targetProduct - the target product
      */
     private void copyTiePoints(Product sourceProduct,
                                Product targetProduct) {
@@ -76,8 +110,8 @@ public abstract class ScapeMMerisBasisOp extends Operator {
     /**
      * Copies geocoding and the start and stop time.
      *
-     * @param sourceProduct
-     * @param targetProduct
+     * @param sourceProduct - the source product
+     * @param targetProduct - the target product
      */
     private void copyBaseGeoInfo(Product sourceProduct,
                                  Product targetProduct) {
@@ -86,33 +120,5 @@ public abstract class ScapeMMerisBasisOp extends Operator {
         targetProduct.setStartTime(sourceProduct.getStartTime());
         targetProduct.setEndTime(sourceProduct.getEndTime());
     }
-
-    Tile getAltitudeTile(Rectangle targetRect, Product sourceProduct, boolean useDEM) {
-        Tile demTile = null;
-        Band demBand;
-        if (useDEM) {
-            demBand = sourceProduct.getBand("dem_elevation");
-            if (demBand != null) {
-                demTile = getSourceTile(demBand, targetRect);
-            }
-        } else {
-            Band frAltitudeBand = sourceProduct.getBand("altitude");
-            if (frAltitudeBand != null) {
-                // FR, FSG
-                demTile = getSourceTile(frAltitudeBand, targetRect);
-            } else {
-                // RR
-                TiePointGrid rrAltitudeTpg = sourceProduct.getTiePointGrid("dem_alt");
-                if (rrAltitudeTpg != null) {
-                    demTile = getSourceTile(rrAltitudeTpg, targetRect);
-                } else {
-                    throw new OperatorException
-                            ("Cannot attach altitude information from given input and configuration - please check!");
-                }
-            }
-        }
-        return demTile;
-    }
-
 
 }
