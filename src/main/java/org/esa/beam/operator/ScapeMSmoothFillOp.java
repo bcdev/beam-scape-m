@@ -58,16 +58,16 @@ public class ScapeMSmoothFillOp extends ScapeMMerisBasisOp implements Constants 
         smoothedProduct = GPF.createProduct(OperatorSpi.getOperatorAlias(ScapeMSmoothOp.class), GPF.NO_PARAMS, smoothInput);
 
         if (sourceProduct.getProductType().contains("_RR")) {
-            pixelsPerCell = 2*ScapeMConstants.RR_PIXELS_PER_CELL;
+            pixelsPerCell = ScapeMConstants.RR_PIXELS_PER_CELL;
         } else {
-            pixelsPerCell = 2*ScapeMConstants.FR_PIXELS_PER_CELL;
+            pixelsPerCell = ScapeMConstants.FR_PIXELS_PER_CELL;
         }
 
         rectCalculator = new RectangleExtender(
                 new Rectangle(sourceProduct.getSceneRasterWidth(),
                               sourceProduct.getSceneRasterHeight()),
-                pixelsPerCell,
-                pixelsPerCell);
+                2 * pixelsPerCell,
+                2 * pixelsPerCell);
         createTargetProduct();
     }
 
@@ -77,6 +77,7 @@ public class ScapeMSmoothFillOp extends ScapeMMerisBasisOp implements Constants 
                                     sourceProduct.getSceneRasterWidth(),
                                     sourceProduct.getSceneRasterHeight());
 
+//        targetProduct.setPreferredTileSize(2*pixelsPerCell, 2*pixelsPerCell);
         targetProduct.setPreferredTileSize(pixelsPerCell, pixelsPerCell);
         targetProduct.setStartTime(sourceProduct.getStartTime());
         targetProduct.setEndTime(sourceProduct.getEndTime());
@@ -103,22 +104,52 @@ public class ScapeMSmoothFillOp extends ScapeMMerisBasisOp implements Constants 
         Band visibilityBand = smoothedProduct.getBand(ScapeMConstants.VISIBILITY_BAND_NAME);
         Tile visibilityTile = getSourceTile(visibilityBand, sourceRect);
 
+
         try {
+            // we may have to re-fill pixels from right and lower edge of the scene which were left empty
+            // by initial smoothing, which works on complete 30x30km cells only
 
             boolean isRightEdge = (targetRect.x >= rightEdge);
+            boolean isLowerEdge = (targetRect.y >= lowerEdge);
 
+            double[] rightEdgeVisibility = null;
             if (isRightEdge) {
+                rightEdgeVisibility = new double[targetRect.height];
                 for (int y = targetRect.y; y < targetRect.y + targetRect.height; y++) {
-                    final double rightEdgeVisibility = getRightEdgeVisibilitySample(visibilityTile, y);
+                    rightEdgeVisibility[y - targetRect.y] = getRightEdgeVisibilitySample(visibilityTile, y);
                     for (int x = targetRect.x; x < targetRect.x + targetRect.width; x++) {
                         if (visibilityTile.getSampleDouble(x, y) != ScapeMConstants.VISIBILITY_NODATA_VALUE) {
                             targetTile.setSample(x, y, visibilityTile.getSampleDouble(x, y));
                         } else {
-                            targetTile.setSample(x, y, rightEdgeVisibility);
+                            targetTile.setSample(x, y, rightEdgeVisibility[y - targetRect.y]);
                         }
                     }
                 }
-            } else {
+            }
+            if (isLowerEdge) {
+                double[] lowerEdgeVisibility = new double[targetRect.width];
+                for (int x = targetRect.x; x < targetRect.x + targetRect.width; x++) {
+                    lowerEdgeVisibility[x - targetRect.x] = getLowerEdgeVisibilitySample(visibilityTile, x);
+                }
+                for (int y = targetRect.y; y < targetRect.y + targetRect.height; y++) {
+                    for (int x = targetRect.x; x < targetRect.x + targetRect.width; x++) {
+                        if (visibilityTile.getSampleDouble(x, y) != ScapeMConstants.VISIBILITY_NODATA_VALUE) {
+                            targetTile.setSample(x, y, visibilityTile.getSampleDouble(x, y));
+                        } else {
+                            double vis;
+                            if (isRightEdge &&
+                                    rightEdgeVisibility[y - targetRect.y] != ScapeMConstants.VISIBILITY_NODATA_VALUE) {
+                                vis = 0.5 * (rightEdgeVisibility[y - targetRect.y] +
+                                        lowerEdgeVisibility[x - targetRect.x]);
+                            } else {
+                                vis = lowerEdgeVisibility[x - targetRect.x];
+                            }
+                            targetTile.setSample(x, y, vis);
+                        }
+                    }
+                }
+            }
+            if (!isRightEdge && !isLowerEdge) {
                 // no edge - copy existing values
                 for (int y = targetRect.y; y < targetRect.y + targetRect.height; y++) {
                     for (int x = targetRect.x; x < targetRect.x + targetRect.width; x++) {
@@ -141,6 +172,17 @@ public class ScapeMSmoothFillOp extends ScapeMMerisBasisOp implements Constants 
         }
         return rightEdgeVis;
     }
+
+    private double getLowerEdgeVisibilitySample(Tile visibilityTile, int x) {
+        int yIndex = lowerEdge - 1;
+        double lowerEdgeVis = visibilityTile.getSampleDouble(x, yIndex);
+        while (lowerEdgeVis == ScapeMConstants.VISIBILITY_NODATA_VALUE &&
+                yIndex >= visibilityTile.getRectangle().y) {
+            lowerEdgeVis = visibilityTile.getSampleDouble(x, yIndex--);
+        }
+        return lowerEdgeVis;
+    }
+
 
     public static class Spi extends OperatorSpi {
 

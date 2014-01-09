@@ -126,6 +126,7 @@ public class ScapeMVisibilityOp extends ScapeMMerisBasisOp implements Constants 
             final double saa = saaTile.getSampleDouble(centerX, centerY);
             final double phi = HelperFunctions.computeAzimuthDifference(vaa, saa);
 
+            pm.beginTask("Processing frame...", targetRect.height + 1);
             try {
                 double[][] hsurfArrayCell;
                 if (useDEM && altitudeTile == null) {
@@ -161,11 +162,13 @@ public class ScapeMVisibilityOp extends ScapeMMerisBasisOp implements Constants 
                                                                             scapeMLut);
 
                 setCellVisibilitySamples(targetTile, targetRect, visibility);
+                pm.worked(1);
             } catch (Exception e) {
                 // todo
                 e.printStackTrace();
                 setCellVisibilitySamples(targetTile, targetRect, ScapeMConstants.AOT_NODATA_VALUE);
             }
+            pm.done();
         } else {
             setCellVisibilitySamples(targetTile, targetRect, ScapeMConstants.AOT_NODATA_VALUE);
         }

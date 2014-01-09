@@ -36,6 +36,11 @@ public class ScapeMOp extends ScapeMMerisBasisOp implements Constants {
                defaultValue = "true")
     private boolean computeOverWater;
 
+    @Parameter(description = "Use constant water vapour value of 2 g/cm^2 to save processing time",
+               label = "Use constant water vapour value of 2 g/cm^2",
+               defaultValue = "false")
+    private boolean useConstantWv;
+
     @Parameter(description = "If set, use GETASSE30 DEM, otherwise get altitudes from product TPGs",
                label = "Use GETASSE30 DEM",
                defaultValue = "false")
@@ -129,6 +134,8 @@ public class ScapeMOp extends ScapeMMerisBasisOp implements Constants {
                                              atmosCorrParams, atmosCorrInput);
 
         targetProduct = atmosCorrProduct;
+//        targetProduct = gapFilledVisibilityProduct;
+//        targetProduct = smoothedVisibilityProduct;
         ProductUtils.copyFlagBands(cloudProduct, targetProduct, true);
         ProductUtils.copyMasks(cloudProduct, targetProduct);
         ProductUtils.copyBand(ScapeMConstants.AOT550_BAND_NAME, aotProduct, atmosCorrProduct, true);

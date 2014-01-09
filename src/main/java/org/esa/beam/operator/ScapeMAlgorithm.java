@@ -79,9 +79,9 @@ public class ScapeMAlgorithm implements Constants {
     /**
      * Returns the elevation array in a 30x30km cell
      *
-     * @param rect - the tile rectangle
+     * @param rect      - the tile rectangle
      * @param geoCoding - the geo coding
-     * @param demTile - the DEM tile
+     * @param demTile   - the DEM tile
      * @param scapeMLut - the atmospheric look-up table
      * @return double[][] - the elevation array
      */
@@ -109,10 +109,10 @@ public class ScapeMAlgorithm implements Constants {
     /**
      * Returns the elevation array in a 30x30km cell
      *
-     * @param rect - the tile rectangle
-     * @param geoCoding - the geo coding
+     * @param rect           - the tile rectangle
+     * @param geoCoding      - the geo coding
      * @param elevationModel - the elevation model
-     * @param scapeMLut - the atmospheric look-up table
+     * @param scapeMLut      - the atmospheric look-up table
      * @return double[][] - the elevation array
      */
     static double[][] getHsurfArrayCell(Rectangle rect,
@@ -144,7 +144,7 @@ public class ScapeMAlgorithm implements Constants {
     /**
      * Returns the cos(SZA) mean value over all land pixels in a 30x30km cell
      *
-     * @param cosSzaCell          - hsurf single values
+     * @param cosSzaCell         - hsurf single values
      * @param clearPixelStrategy - strategy how clear pixels are determined
      * @return double - the cell mean value
      */
@@ -212,8 +212,8 @@ public class ScapeMAlgorithm implements Constants {
      * Returns the TOA array in a 30x30km cell
      *
      * @param radianceTile - the input radiances
-     * @param rect - the tile rectangle
-     * @param doy - the day of year
+     * @param rect         - the tile rectangle
+     * @param doy          - the day of year
      * @return double[][] - the TOA array
      */
     static double[][] getToaArrayCell(Tile radianceTile,
@@ -400,8 +400,8 @@ public class ScapeMAlgorithm implements Constants {
      * Returns the AOT at 550nm for a 30x30km cell
      *
      * @param visibility - the visibility
-     * @param hsurf - the elevation
-     * @param scapeMLut - the atmospheric look-up table
+     * @param hsurf      - the elevation
+     * @param scapeMLut  - the atmospheric look-up table
      * @return double - the AOT
      */
     static double getCellAot550(double visibility, double hsurf, ScapeMLut scapeMLut) {
@@ -449,14 +449,14 @@ public class ScapeMAlgorithm implements Constants {
     /**
      * Returns the 'reflectance images' used for atmospheric correction
      *
-     * @param fInt - the LUT output parameters
-     * @param toaArray - the TOA cell arrays for all wavelengths
-     * @param cosSzaArrayCell  - the cos(SZA) cell array
+     * @param fInt            - the LUT output parameters
+     * @param toaArray        - the TOA cell arrays for all wavelengths
+     * @param cosSzaArrayCell - the cos(SZA) cell array
      * @return double[][][] - the 'reflectance images': cell arrays for all wavelengths
      */
     static double[][][] getReflImage(double[][] fInt,
-                                            double[][][] toaArray,
-                                            double[][] cosSzaArrayCell) {
+                                     double[][][] toaArray,
+                                     double[][] cosSzaArrayCell) {
 
         final double deltaX =
                 1.0 / (ScapeMConstants.MERIS_WAVELENGTHS[13] - ScapeMConstants.MERIS_WAVELENGTHS[12]);
@@ -480,46 +480,43 @@ public class ScapeMAlgorithm implements Constants {
     }
 
 
-
-
     /**
-     *
-     *
-     * @param rect - the target rectangle
-     * @param visibilityTile - the visibility tile
+     * @param rect               - the target rectangle
+     * @param visibilityTile     - the visibility tile
      * @param clearPixelStrategy - strategy how clear pixels are determined
-     * @param toaArrayCell - the TOA cell array
-     * @param hsurfArray - the elevation cell array
-     * @param cosSzaArray - the cos(SZA) cell array
-     * @param cosSzaMeanCell - the cos(SZA) cell mean value
-     * @param reflImg - the 'reflectance images' for all wavelengths
-     * @param radianceTile13 - radiance tile at band 13
-     * @param radianceTile14 - radiance tile at band 14
-     * @param scapeMLut - the atmospheric look-up table
-     * @param lpw - the 'lpw' term of radiative transfer equation
-     * @param e0tw - the 'e0tw' term of radiative transfer equation
-     * @param ediftw - the 'ediftw' term of radiative transfer equation
-     * @param tDirD - the 'tDirD' term of radiative transfer equation
-     * @param sab - the 'sab' term of radiative transfer equation
-     *
+     * @param useConstantWv
+     * @param toaArrayCell       - the TOA cell array
+     * @param hsurfArray         - the elevation cell array
+     * @param cosSzaArray        - the cos(SZA) cell array
+     * @param cosSzaMeanCell     - the cos(SZA) cell mean value
+     * @param reflImg            - the 'reflectance images' for all wavelengths
+     * @param radianceTile13     - radiance tile at band 13
+     * @param radianceTile14     - radiance tile at band 14
+     * @param scapeMLut          - the atmospheric look-up table
+     * @param lpw                - the 'lpw' term of radiative transfer equation
+     * @param e0tw               - the 'e0tw' term of radiative transfer equation
+     * @param ediftw             - the 'ediftw' term of radiative transfer equation
+     * @param tDirD              - the 'tDirD' term of radiative transfer equation
+     * @param sab                - the 'sab' term of radiative transfer equation
      * @return ScapeMResult: holding water vapour and atmospheric corrected reflectances (see {@link ScapeMResult})
      */
     static ScapeMResult computeAcResult(Rectangle rect,
-                                               Tile visibilityTile,
-                                               ClearPixelStrategy clearPixelStrategy,
-                                               double[][][] toaArrayCell,
-                                               double[][] hsurfArray,
-                                               double[][] cosSzaArray,
-                                               double cosSzaMeanCell,
-                                               double[][][] reflImg,
-                                               Tile radianceTile13,
-                                               Tile radianceTile14,
-                                               ScapeMLut scapeMLut,
-                                               double[][][][] lpw,
-                                               double[][][][] e0tw,
-                                               double[][][][] ediftw,
-                                               double[][][][] tDirD,
-                                               double[][][][] sab) {
+                                        Tile visibilityTile,
+                                        ClearPixelStrategy clearPixelStrategy,
+                                        boolean useConstantWv,
+                                        double[][][] toaArrayCell,
+                                        double[][] hsurfArray,
+                                        double[][] cosSzaArray,
+                                        double cosSzaMeanCell,
+                                        double[][][] reflImg,
+                                        Tile radianceTile13,
+                                        Tile radianceTile14,
+                                        ScapeMLut scapeMLut,
+                                        double[][][][] lpw,
+                                        double[][][][] e0tw,
+                                        double[][][][] ediftw,
+                                        double[][][][] tDirD,
+                                        double[][][][] sab) {
 
         final int dimWv = scapeMLut.getCwvArrayLUT().length;
         final int dimVis = scapeMLut.getVisArrayLUT().length;
@@ -541,8 +538,8 @@ public class ScapeMAlgorithm implements Constants {
                     final double[] reflPix = new double[]{pix1, pix2};
 
                     final double[] hsfArrayLUT = scapeMLut.getHsfArrayLUT();
-                    int hsIndex = dimVis/2;     // todo: do it like this (it works reasonably), or raise flag if no index is found?
-                    for (int i = 0; i < dimHsurf-1; i++) {
+                    int hsIndex = dimVis / 2;     // todo: do it like this (it works reasonably), or raise flag if no index is found?
+                    for (int i = 0; i < dimHsurf - 1; i++) {
                         if (demPix >= hsfArrayLUT[i]) {
                             hsIndex = i;
                         }
@@ -553,9 +550,9 @@ public class ScapeMAlgorithm implements Constants {
                                 (hsfArrayLUT[hsIndex + 1] - hsfArrayLUT[hsIndex]);
                     }
 
-                    int visIndex = dimVis/2;    // todo: s.a.
+                    int visIndex = dimVis / 2;    // todo: s.a.
                     final double[] visArrayLUT = scapeMLut.getVisArrayLUT();
-                    for (int i = 0; i < dimVis-1; i++) {
+                    for (int i = 0; i < dimVis - 1; i++) {
                         if (visPix >= visArrayLUT[i]) {
                             visIndex = i;
                         }
@@ -626,32 +623,39 @@ public class ScapeMAlgorithm implements Constants {
 
                     // now water vapour:
                     // all numbers in this test taken from IDL test run, cellIndexX=1, cellIndexY=0
-                    WaterVapourFunction wvFunction = new WaterVapourFunction();
-                    wvFunction.setMerisRatio(ratioMeris);
-                    wvFunction.setWvGr2(scapeMLut.getCwvArrayLUT());
-                    wvFunction.setParAtmH(parAtmH);
-                    wvFunction.setReflPix(reflPix);
+                    double wvResult = ScapeMConstants.WV_INIT;
+                    double wvP = ScapeMConstants.WV_INIT;
+                    int wvInf = dimWv/2;
+                    if (!useConstantWv) {
+                        WaterVapourFunction wvFunction = new WaterVapourFunction();
+                        wvFunction.setMerisRatio(ratioMeris);
+                        wvFunction.setWvGr2(scapeMLut.getCwvArrayLUT());
+                        wvFunction.setParAtmH(parAtmH);
+                        wvFunction.setReflPix(reflPix);
 
-                    final double wvLower = scapeMLut.getCwvMin();
-                    final double wvUpper = scapeMLut.getCwvMax();
+                        final double wvLower = scapeMLut.getCwvMin();
+                        final double wvUpper = scapeMLut.getCwvMax();
 
-                    BrentSolver brentSolver = new BrentSolver(ScapeMConstants.FTOL);
-                    double wvResult;
-                    try {
-                        wvResult = brentSolver.solve(ScapeMConstants.MAXITER, wvFunction,
-                                                     wvLower, wvUpper);
-                    } catch (NoBracketingException e) {
-                        wvResult = ScapeMConstants.WV_INIT;
-                        // todo: check if flag should be raised
+                        BrentSolver brentSolver = new BrentSolver(ScapeMConstants.FTOL);
+                        try {
+                            wvResult = brentSolver.solve(ScapeMConstants.MAXITER, wvFunction,
+                                                         wvLower, wvUpper);
+                            wvInf = wvFunction.getWvInf();
+                            wvP = wvFunction.getWvP();
+                        } catch (NoBracketingException e) {
+                            // retrieval outside valid range, set to default value
+                            wvResult = ScapeMConstants.WV_INIT;
+                            wvP = ScapeMConstants.WV_INIT;
+                            wvInf = dimWv/2;
+                            // todo: check if flag should be raised
 //                    e.printStackTrace();
+                        }
                     }
                     scapeMResult.setWvPixel(x - rect.x, y - rect.y, wvResult);
 
                     double[] lpwAc = new double[L1_BAND_NUM];
                     double[] etwAc = new double[L1_BAND_NUM];
                     double[] sabAc = new double[L1_BAND_NUM];
-                    final int wvInf = wvFunction.getWvInf();
-                    final double wvP = wvFunction.getWvP();
                     for (int i = 0; i < L1_BAND_NUM; i++) {
                         if (i != 10 && i != 14) {
                             lpwAc[i] = lpwSp[i][wvInf] + wvP * (lpwSp[i][wvInf + 1] - lpwSp[i][wvInf]);
