@@ -104,7 +104,7 @@ public class ScapeMSmoothFillOp extends ScapeMMerisBasisOp implements Constants 
         Band visibilityBand = smoothedProduct.getBand(ScapeMConstants.VISIBILITY_BAND_NAME);
         Tile visibilityTile = getSourceTile(visibilityBand, sourceRect);
 
-
+        pm.beginTask("Processing frame...", targetRect.height + 1);
         try {
             // we may have to re-fill pixels from right and lower edge of the scene which were left empty
             // by initial smoothing, which works on complete 30x30km cells only
@@ -157,6 +157,7 @@ public class ScapeMSmoothFillOp extends ScapeMMerisBasisOp implements Constants 
                     }
                 }
             }
+            pm.worked(1);
         } catch (Exception e) {
             // todo
             e.printStackTrace();

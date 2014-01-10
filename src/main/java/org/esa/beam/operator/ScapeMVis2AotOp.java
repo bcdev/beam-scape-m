@@ -44,7 +44,7 @@ public class ScapeMVis2AotOp extends ScapeMMerisBasisOp implements Constants {
     @SourceProduct(alias = "visibility")
     private Product visibilityProduct;
 
-    @Parameter(description = "ScapeM AOT Lookup table")
+    //@Parameter(description = "ScapeM AOT Lookup table")
     private ScapeMLut scapeMLut;
 
     @TargetProduct
@@ -82,6 +82,7 @@ public class ScapeMVis2AotOp extends ScapeMMerisBasisOp implements Constants {
 
 
         double[][] hsurfArrayCell;
+        pm.beginTask("Processing frame...", targetRect.height + 1);
         try {
             if (useDEM && altitudeTile == null) {
                 hsurfArrayCell = ScapeMAlgorithm.getHsurfArrayCell(targetRect, geoCoding, elevationModel, scapeMLut);
@@ -101,10 +102,13 @@ public class ScapeMVis2AotOp extends ScapeMMerisBasisOp implements Constants {
                         targetTile.setSample(x, y, ScapeMConstants.AOT_NODATA_VALUE);
                     }
                 }
+                pm.worked(1);
             }
         } catch (Exception e) {
             // todo
             e.printStackTrace();
+        } finally {
+            pm.done();
         }
     }
 
@@ -114,6 +118,10 @@ public class ScapeMVis2AotOp extends ScapeMMerisBasisOp implements Constants {
         Band aot550Band = targetProduct.addBand(ScapeMConstants.AOT550_BAND_NAME, ProductData.TYPE_FLOAT32);
         aot550Band.setNoDataValue(ScapeMConstants.AOT_NODATA_VALUE);
         aot550Band.setValidPixelExpression(ScapeMConstants.SCAPEM_VALID_EXPR);
+    }
+
+    public void setScapeMLut(ScapeMLut scapeMLut) {
+        this.scapeMLut = scapeMLut;
     }
 
     public static class Spi extends OperatorSpi {

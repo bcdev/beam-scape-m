@@ -40,7 +40,7 @@ import java.util.Map;
                   description = "Operator for MERIS atmospheric correction with SCAPE-M algorithm: AC part.")
 public class ScapeMAtmosCorrOp extends ScapeMMerisBasisOp implements Constants {
 
-    @Parameter(description = "ScapeM AOT Lookup table")
+    //@Parameter(description = "ScapeM AOT Lookup table")
     private ScapeMLut scapeMLut;
 
     @Parameter(description = "Number of iterations for WV retrieval", defaultValue = "1")
@@ -320,6 +320,10 @@ public class ScapeMAtmosCorrOp extends ScapeMMerisBasisOp implements Constants {
             // todo: continue if needed
         }
         return flagCoding;
+    }
+
+    public void setScapeMLut(ScapeMLut scapeMLut) {
+        this.scapeMLut = scapeMLut;
     }
 
     public static class Spi extends OperatorSpi {

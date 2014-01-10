@@ -1,5 +1,7 @@
 package org.esa.beam.operator;
 
+import com.bc.ceres.core.ProgressMonitor;
+import com.bc.ceres.swing.progress.DialogProgressMonitor;
 import org.esa.beam.ScapeMConstants;
 import org.esa.beam.framework.datamodel.Product;
 import org.esa.beam.framework.datamodel.ProductData;
@@ -15,6 +17,8 @@ import org.esa.beam.io.LutAccess;
 import org.esa.beam.meris.l2auxdata.Constants;
 import org.esa.beam.util.ProductUtils;
 
+import javax.swing.*;
+import java.awt.*;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
@@ -77,7 +81,12 @@ public class ScapeMOp extends ScapeMMerisBasisOp implements Constants {
     @Override
     public void initialize() throws OperatorException {
         checkProductStartStopTimes();
+//        readAuxdata();
+
+        final long t1 = System.currentTimeMillis();
         readAuxdata();
+        final long t2 = System.currentTimeMillis();
+        getLogger().info("ScapeMOp.readAuxdata took "+(t2-t1)+" ms");
 
         // get the cloud product from Idepix...
         Map<String, Product> idepixInput = new HashMap<String, Product>(4);
@@ -85,19 +94,34 @@ public class ScapeMOp extends ScapeMMerisBasisOp implements Constants {
         Map<String, Object> cloudParams = new HashMap<String, Object>(1);
         cloudProduct = GPF.createProduct(OperatorSpi.getOperatorAlias(FubScapeMOp.class), cloudParams, idepixInput);
 
+        final long t3 = System.currentTimeMillis();
+        getLogger().info("step 1 "+(t3-t2)+" ms");
+
         // get the cell visibility/AOT product...
-        Map<String, Product> cellVisibilityInput = new HashMap<String, Product>(4);
-        cellVisibilityInput.put("source", sourceProduct);
-        cellVisibilityInput.put("cloud", cloudProduct);
-        Map<String, Object> visParams = new HashMap<String, Object>(1);
-        visParams.put("scapeMLut", scapeMLut);
-        visParams.put("computeOverWater", computeOverWater);
-        visParams.put("useDEM", useDEM);
         // this is a product with grid resolution, but having equal visibility values over a cell (30x30km)
         // (follows the IDL implementation)
-        cellVisibilityProduct = GPF.createProduct(OperatorSpi.getOperatorAlias(ScapeMVisibilityOp.class), visParams, cellVisibilityInput);
+        final ScapeMVisibilityOp scapeMVisibilityOp = new ScapeMVisibilityOp();
+        scapeMVisibilityOp.setSourceProduct("source", sourceProduct);
+        scapeMVisibilityOp.setSourceProduct("cloud", cloudProduct);
+        scapeMVisibilityOp.setParameter("computeOverWater", computeOverWater);
+        scapeMVisibilityOp.setParameter("useDEM", useDEM);
+        scapeMVisibilityOp.setScapeMLut(scapeMLut);
+        cellVisibilityProduct  = scapeMVisibilityOp.getTargetProduct();
+
+//        Map<String, Product> cellVisibilityInput = new HashMap<String, Product>(4);
+//        cellVisibilityInput.put("source", sourceProduct);
+//        cellVisibilityInput.put("cloud", cloudProduct);
+//        Map<String, Object> visParams = new HashMap<String, Object>(1);
+//        visParams.put("scapeMLut", scapeMLut);
+//        visParams.put("computeOverWater", computeOverWater);
+//        visParams.put("useDEM", useDEM);
+//        cellVisibilityProduct = GPF.createProduct(OperatorSpi.getOperatorAlias(ScapeMVisibilityOp.class), visParams, cellVisibilityInput);
+
+        final long t4 = System.currentTimeMillis();
+        getLogger().info("step 2 "+(t4-t3)+" ms");
 
         // fill gaps...
+//        gapFilledVisibilityProduct = cellVisibilityProduct; // test!!
         try {
             gapFilledVisibilityProduct = ScapeMGapFill.gapFill(cellVisibilityProduct);
         } catch (IOException e) {
@@ -109,31 +133,58 @@ public class ScapeMOp extends ScapeMMerisBasisOp implements Constants {
         smoothInput.put("gapFilled", gapFilledVisibilityProduct);
         smoothedVisibilityProduct = GPF.createProduct(OperatorSpi.getOperatorAlias(ScapeMSmoothFillOp.class), GPF.NO_PARAMS, smoothInput);
 
-        // convert visibility to AOT
-        Map<String, Product> aotConvertInput = new HashMap<String, Product>(4);
-        aotConvertInput.put("source", sourceProduct);
-        aotConvertInput.put("visibility", smoothedVisibilityProduct);
-        Map<String, Object> aotConvertParams = new HashMap<String, Object>(1);
-        aotConvertParams.put("scapeMLut", scapeMLut);
-        aotProduct = GPF.createProduct(OperatorSpi.getOperatorAlias(ScapeMVis2AotOp.class),
-                                       aotConvertParams, aotConvertInput);
+        final long t5 = System.currentTimeMillis();
+        getLogger().info("step 3 "+(t5-t4)+" ms");
+
+//        // convert visibility to AOT
+        final ScapeMVis2AotOp scapeMVis2AotOp = new ScapeMVis2AotOp();
+        scapeMVis2AotOp.setSourceProduct("source", sourceProduct);
+        scapeMVis2AotOp.setSourceProduct("visibility", smoothedVisibilityProduct);
+        scapeMVis2AotOp.setScapeMLut(scapeMLut);
+        aotProduct = scapeMVis2AotOp.getTargetProduct();
+
+//        Map<String, Product> aotConvertInput = new HashMap<String, Product>(4);
+//        aotConvertInput.put("source", sourceProduct);
+//        aotConvertInput.put("visibility", smoothedVisibilityProduct);
+//        Map<String, Object> aotConvertParams = new HashMap<String, Object>(1);
+//        aotConvertParams.put("scapeMLut", scapeMLut);
+//        aotProduct = GPF.createProduct(OperatorSpi.getOperatorAlias(ScapeMVis2AotOp.class),
+//                                       aotConvertParams, aotConvertInput);
+
+        final long t6 = System.currentTimeMillis();
+        getLogger().info("step 4 "+(t6-t5)+" ms");
 
         // derive CWV...
         // derive reflectance...
-        Map<String, Product> atmosCorrInput = new HashMap<String, Product>(4);
-        atmosCorrInput.put("source", sourceProduct);
-        atmosCorrInput.put("cloud", cloudProduct);
-        atmosCorrInput.put("visibility", smoothedVisibilityProduct);
-        Map<String, Object> atmosCorrParams = new HashMap<String, Object>(1);
-        atmosCorrParams.put("scapeMLut", scapeMLut);
-        atmosCorrParams.put("computeOverWater", computeOverWater);
-        atmosCorrParams.put("useDEM", useDEM);
-        atmosCorrParams.put("outputRhoToa", outputRhoToa);
-        atmosCorrParams.put("outputReflBand2", outputReflBand2);
-        atmosCorrProduct = GPF.createProduct(OperatorSpi.getOperatorAlias(ScapeMAtmosCorrOp.class),
-                                             atmosCorrParams, atmosCorrInput);
+//        Map<String, Product> atmosCorrInput = new HashMap<String, Product>(4);
+//        atmosCorrInput.put("source", sourceProduct);
+//        atmosCorrInput.put("cloud", cloudProduct);
+//        atmosCorrInput.put("visibility", smoothedVisibilityProduct);
+//        Map<String, Object> atmosCorrParams = new HashMap<String, Object>(1);
+//        atmosCorrParams.put("scapeMLut", scapeMLut);
+//        atmosCorrParams.put("computeOverWater", computeOverWater);
+//        atmosCorrParams.put("useDEM", useDEM);
+//        atmosCorrParams.put("outputRhoToa", outputRhoToa);
+//        atmosCorrParams.put("outputReflBand2", outputReflBand2);
+//        atmosCorrProduct = GPF.createProduct(OperatorSpi.getOperatorAlias(ScapeMAtmosCorrOp.class),
+//                                             atmosCorrParams, atmosCorrInput);
+
+        final ScapeMAtmosCorrOp scapeMAtmosCorrOp = new ScapeMAtmosCorrOp();
+        scapeMAtmosCorrOp.setSourceProduct("source", sourceProduct);
+        scapeMAtmosCorrOp.setSourceProduct("cloud", cloudProduct);
+        scapeMAtmosCorrOp.setSourceProduct("visibility", smoothedVisibilityProduct);
+        scapeMAtmosCorrOp.setParameter("computeOverWater", computeOverWater);
+        scapeMAtmosCorrOp.setParameter("useDEM", useDEM);
+        scapeMAtmosCorrOp.setParameter("outputRhoToa", outputRhoToa);
+        scapeMAtmosCorrOp.setParameter("outputReflBand2", outputReflBand2);
+        scapeMAtmosCorrOp.setScapeMLut(scapeMLut);
+        atmosCorrProduct  = scapeMAtmosCorrOp.getTargetProduct();
+
+        final long t7 = System.currentTimeMillis();
+        getLogger().info("step 5 "+(t7-t6)+" ms");
 
         targetProduct = atmosCorrProduct;
+//        targetProduct = cellVisibilityProduct;
 //        targetProduct = gapFilledVisibilityProduct;
 //        targetProduct = smoothedVisibilityProduct;
         ProductUtils.copyFlagBands(cloudProduct, targetProduct, true);
