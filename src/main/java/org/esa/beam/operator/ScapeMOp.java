@@ -122,11 +122,20 @@ public class ScapeMOp extends ScapeMMerisBasisOp implements Constants {
 
         // fill gaps...
 //        gapFilledVisibilityProduct = cellVisibilityProduct; // test!!
-        try {
-            gapFilledVisibilityProduct = ScapeMGapFill.gapFill(cellVisibilityProduct);
-        } catch (IOException e) {
-            throw new OperatorException(e.getMessage(), e);
-        }
+
+        // old implementation:
+//        try {
+//            gapFilledVisibilityProduct = ScapeMGapFill.gapFill(cellVisibilityProduct);
+//        } catch (IOException e) {
+//            throw new OperatorException(e.getMessage(), e);
+//        }
+
+        // new implementation:
+        final ScapeMGapFillOp scapeMGapFillOp = new ScapeMGapFillOp();
+        scapeMGapFillOp.setSourceProduct("source", sourceProduct);
+        scapeMGapFillOp.setSourceProduct("gap", cellVisibilityProduct);
+        gapFilledVisibilityProduct  = scapeMGapFillOp.getTargetProduct();
+
 
         Map<String, Product> smoothInput = new HashMap<String, Product>(4);
         smoothInput.put("source", sourceProduct);
@@ -183,13 +192,13 @@ public class ScapeMOp extends ScapeMMerisBasisOp implements Constants {
         final long t7 = System.currentTimeMillis();
         getLogger().info("step 5 "+(t7-t6)+" ms");
 
-        targetProduct = atmosCorrProduct;
+//        targetProduct = atmosCorrProduct;
 //        targetProduct = cellVisibilityProduct;
-//        targetProduct = gapFilledVisibilityProduct;
+        targetProduct = gapFilledVisibilityProduct;
 //        targetProduct = smoothedVisibilityProduct;
         ProductUtils.copyFlagBands(cloudProduct, targetProduct, true);
         ProductUtils.copyMasks(cloudProduct, targetProduct);
-        ProductUtils.copyBand(ScapeMConstants.AOT550_BAND_NAME, aotProduct, atmosCorrProduct, true);
+//        ProductUtils.copyBand(ScapeMConstants.AOT550_BAND_NAME, aotProduct, atmosCorrProduct, true);
     }
 
     private void checkProductStartStopTimes() {
