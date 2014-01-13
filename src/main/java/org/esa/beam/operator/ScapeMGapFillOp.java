@@ -22,10 +22,10 @@ import java.awt.*;
  * @author Tonio Fincke, Olaf Danne
  */
 @OperatorMetadata(alias = "beam.scapeM.gapfill", version = "1.0-SNAPSHOT",
-                  authors = "Tonio Fincke, Olaf Danne",
-                  copyright = "(c) 2013 Brockmann Consult",
-                  internal = true,
-                  description = "Provides the visibility gap filling as used in IDL breadboard.")
+        authors = "Tonio Fincke, Olaf Danne",
+        copyright = "(c) 2013 Brockmann Consult",
+        internal = true,
+        description = "Provides the visibility gap filling as used in IDL breadboard.")
 public class ScapeMGapFillOp extends ScapeMMerisBasisOp implements Constants {
 
     @SourceProduct(alias = "source")
@@ -58,15 +58,9 @@ public class ScapeMGapFillOp extends ScapeMMerisBasisOp implements Constants {
 
         rectCalculator = new RectangleExtender(
                 new Rectangle(sourceProduct.getSceneRasterWidth(),
-                              sourceProduct.getSceneRasterHeight()),
+                        sourceProduct.getSceneRasterHeight()),
                 3 * pixelsPerCell,
                 3 * pixelsPerCell);
-
-//        rectCalculator = new RectangleExtender(
-//                new Rectangle(sourceProduct.getSceneRasterWidth(),
-//                              sourceProduct.getSceneRasterHeight()),
-//                sourceProduct.getSceneRasterWidth(),
-//                sourceProduct.getSceneRasterHeight());
 
         tileWidth = (int) gapProduct.getPreferredTileSize().getWidth();
         tileHeight = (int) gapProduct.getPreferredTileSize().getHeight();
@@ -99,35 +93,38 @@ public class ScapeMGapFillOp extends ScapeMMerisBasisOp implements Constants {
         } else {
             // do gap filling by interpolation
             final int minimumDistanceToEdge = getMinimumDistanceToEdge(tileIndexX,
-                                                                       tileIndexY,
-                                                                       numberOfCellColumns,
-                                                                       numberOfCellRows);
+                    tileIndexY,
+                    numberOfCellColumns,
+                    numberOfCellRows);
 
             double visInterpolValue;
             if (minimumDistanceToEdge >= 2) {
-                System.out.println("minimumDistanceToEdge = " + minimumDistanceToEdge + " // " + tileIndexX + "," + tileIndexY);
-                if (minimumDistanceToEdge == 2 && tileIndexX == 8 && tileIndexY == 2) {
-                    System.out.println("minimumDistanceToEdge = " + minimumDistanceToEdge);
-                }
-                visInterpolValue = interpolateOverRegion(sourceVisibilityTile, targetRect, tileIndexX, tileIndexY, 2, noDataValue);
+                visInterpolValue = interpolateOverRegion(sourceVisibilityTile, tileIndexX, tileIndexY, 2, noDataValue);
             } else if (minimumDistanceToEdge == 1) {
-                System.out.println("minimumDistanceToEdge = " + minimumDistanceToEdge + " // " + tileIndexX + "," + tileIndexY);
-                visInterpolValue = interpolateOverRegion(sourceVisibilityTile, targetRect, tileIndexX, tileIndexY, 1, noDataValue);
+                visInterpolValue = interpolateOverRegion(sourceVisibilityTile, tileIndexX, tileIndexY, 1, noDataValue);
             } else {
-                System.out.println("minimumDistanceToEdge = " + minimumDistanceToEdge + " // " + tileIndexX + "," + tileIndexY);
                 visInterpolValue = interpolateAtCornerOrBorder(numberOfCellColumns, numberOfCellRows,
-                                                               sourceVisibilityTile, targetRect, tileIndexX, tileIndexY, noDataValue);
+                        sourceVisibilityTile, tileIndexX, tileIndexY, noDataValue);
             }
             if (visInterpolValue == 0 && minimumDistanceToEdge >= 3) {
-                System.out.println("visInterpolValue = " + visInterpolValue + " // " + tileIndexX + "," + tileIndexY);
-                visInterpolValue = interpolateOverRegion(sourceVisibilityTile, targetRect, tileIndexX, tileIndexY, 3, noDataValue);
+                visInterpolValue = interpolateOverRegion(sourceVisibilityTile, tileIndexX, tileIndexY, 3, noDataValue);
             }
             if (visInterpolValue == 0) {
+                synchronized (this) {
+                    if (visImageMean == 0.0) {
+                        visImageMean = getVisibilityImageMean();
+                    }
+                }
                 visInterpolValue = visImageMean;
             }
 
             setCellVisibilitySamples(targetTile, targetRect, visInterpolValue);
         }
+    }
+
+     /* package local for testing*/
+    static int getMinimumDistanceToEdge(int x, int y, int numberOfCellColumns, int numberOfCellRows) {
+        return Math.min(x, Math.min(y, Math.min(numberOfCellColumns - 1 - x, numberOfCellRows - 1 - y)));
     }
 
     private void createTargetProduct() throws OperatorException {
@@ -165,28 +162,14 @@ public class ScapeMGapFillOp extends ScapeMMerisBasisOp implements Constants {
         }
     }
 
-    /* package local for testing*/
-    static int getMinimumDistanceToEdge(int x, int y, int numberOfCellColumns, int numberOfCellRows) {
-        return Math.min(x,
-                        Math.min(y,
-                                 Math.min(numberOfCellColumns - 1 - x,
-                                          numberOfCellRows - 1 - y)));
-    }
-
-    /* package local for testing*/
-    static float interpolateOverRegion(Tile visSourceTile,
-                                       Rectangle targetRect, int x, int y, int neighboringDistance, double noDataValue) {
+    private float interpolateOverRegion(Tile visSourceTile, int x, int y, int neighboringDistance, double noDataValue) {
         float meanValue = 0;
         int validNeighboringCellsCounter = 0;
         for (int i = -neighboringDistance; i <= neighboringDistance; i++) {
             for (int j = -neighboringDistance; j <= neighboringDistance; j++) {
-                final int xAssign = (x + i) * targetRect.width;
-                final int yAssign = (y + j) * targetRect.height;
-                if (xAssign >= visSourceTile.getMaxX() || xAssign <= visSourceTile.getMinX() ||
-                        yAssign >= visSourceTile.getMaxY() || yAssign <= visSourceTile.getMinY())  {
-                    System.out.println("yAssign = " + yAssign);
-                }
-                final double visValue = visSourceTile.getSampleDouble(xAssign, yAssign);
+                final int xAssign = x + i;
+                final int yAssign = y + j;
+                final double visValue = visSourceTile.getSampleDouble(xAssign * tileWidth, yAssign * tileHeight);
                 if (visValue != noDataValue) {
                     meanValue += visValue;
                     validNeighboringCellsCounter++;
@@ -199,19 +182,19 @@ public class ScapeMGapFillOp extends ScapeMMerisBasisOp implements Constants {
         return meanValue;
     }
 
-    /* package local for testing*/
-    static float interpolateAtCornerOrBorder(int numberOfCellColumns, int numberOfCellRows, Tile visSourceTile,
-                                             Rectangle targetRect, int x, int y, double noDataValue) {
+    private float interpolateAtCornerOrBorder(int numberOfCellColumns, int numberOfCellRows, Tile visSourceTile,
+                                              int x, int y, double noDataValue) {
         float mean = 0;
         int validCellsCounter = 0;
+
         for (int i = -1; i <= 1; i++) {
             for (int j = -1; j <= 1; j++) {
-                final int xAssign = (x + i) * targetRect.width;
-                final int yAssign = (y + j) * targetRect.height;
+                final int xAssign = x + i;
+                final int yAssign = y + j;
                 final int minimumDistanceToEdgeAssign
                         = getMinimumDistanceToEdge(xAssign, yAssign, numberOfCellColumns, numberOfCellRows);
                 if (minimumDistanceToEdgeAssign >= 0) {
-                    final double visValue = visSourceTile.getSampleDouble(xAssign, yAssign);
+                    final double visValue = visSourceTile.getSampleDouble(xAssign * tileWidth, yAssign * tileHeight);
                     if (visValue != noDataValue) {
                         mean += visValue;
                         validCellsCounter++;

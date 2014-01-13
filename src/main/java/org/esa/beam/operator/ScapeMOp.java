@@ -3,6 +3,7 @@ package org.esa.beam.operator;
 import com.bc.ceres.core.ProgressMonitor;
 import com.bc.ceres.swing.progress.DialogProgressMonitor;
 import org.esa.beam.ScapeMConstants;
+import org.esa.beam.framework.datamodel.Band;
 import org.esa.beam.framework.datamodel.Product;
 import org.esa.beam.framework.datamodel.ProductData;
 import org.esa.beam.framework.gpf.GPF;
@@ -35,15 +36,15 @@ import java.util.Map;
 public class ScapeMOp extends ScapeMMerisBasisOp implements Constants {
     public static final String VERSION = "1.0-SNAPSHOT";
 
-    @Parameter(description = "Compute over all water (not just over lakes)",
-               label = "Compute over all water (not just over lakes)",
-               defaultValue = "true")
-    private boolean computeOverWater;
+//    @Parameter(description = "Compute over all water (not just over lakes)",
+//               label = "Compute over all water (not just over lakes)",
+//               defaultValue = "true")
+    private boolean computeOverWater = true;    // it is much faster, as we do not need to compute the coast/lakes mask
 
-    @Parameter(description = "Use constant water vapour value of 2 g/cm^2 to save processing time",
-               label = "Use constant water vapour value of 2 g/cm^2",
-               defaultValue = "false")
-    private boolean useConstantWv;
+//    @Parameter(description = "Use constant water vapour value of 2.0 g/cm^2 to save processing time",
+//               label = "Use constant water vapour value of 2.0 g/cm^2",
+//               defaultValue = "false")
+    private boolean useConstantWv = false;  // performance gain is negligible, so do not use as option for the moment
 
     @Parameter(description = "If set, use GETASSE30 DEM, otherwise get altitudes from product TPGs",
                label = "Use GETASSE30 DEM",
@@ -81,7 +82,7 @@ public class ScapeMOp extends ScapeMMerisBasisOp implements Constants {
     @Override
     public void initialize() throws OperatorException {
         checkProductStartStopTimes();
-//        readAuxdata();
+        readAuxdata();
 
         final long t1 = System.currentTimeMillis();
         readAuxdata();
@@ -92,6 +93,7 @@ public class ScapeMOp extends ScapeMMerisBasisOp implements Constants {
         Map<String, Product> idepixInput = new HashMap<String, Product>(4);
         idepixInput.put("source", sourceProduct);
         Map<String, Object> cloudParams = new HashMap<String, Object>(1);
+        cloudParams.put("calculateLakes", !computeOverWater);
         cloudProduct = GPF.createProduct(OperatorSpi.getOperatorAlias(FubScapeMOp.class), cloudParams, idepixInput);
 
         final long t3 = System.currentTimeMillis();
@@ -108,34 +110,15 @@ public class ScapeMOp extends ScapeMMerisBasisOp implements Constants {
         scapeMVisibilityOp.setScapeMLut(scapeMLut);
         cellVisibilityProduct  = scapeMVisibilityOp.getTargetProduct();
 
-//        Map<String, Product> cellVisibilityInput = new HashMap<String, Product>(4);
-//        cellVisibilityInput.put("source", sourceProduct);
-//        cellVisibilityInput.put("cloud", cloudProduct);
-//        Map<String, Object> visParams = new HashMap<String, Object>(1);
-//        visParams.put("scapeMLut", scapeMLut);
-//        visParams.put("computeOverWater", computeOverWater);
-//        visParams.put("useDEM", useDEM);
-//        cellVisibilityProduct = GPF.createProduct(OperatorSpi.getOperatorAlias(ScapeMVisibilityOp.class), visParams, cellVisibilityInput);
-
         final long t4 = System.currentTimeMillis();
         getLogger().info("step 2 "+(t4-t3)+" ms");
 
         // fill gaps...
 //        gapFilledVisibilityProduct = cellVisibilityProduct; // test!!
-
-        // old implementation:
-//        try {
-//            gapFilledVisibilityProduct = ScapeMGapFill.gapFill(cellVisibilityProduct);
-//        } catch (IOException e) {
-//            throw new OperatorException(e.getMessage(), e);
-//        }
-
-        // new implementation:
         final ScapeMGapFillOp scapeMGapFillOp = new ScapeMGapFillOp();
         scapeMGapFillOp.setSourceProduct("source", sourceProduct);
         scapeMGapFillOp.setSourceProduct("gap", cellVisibilityProduct);
         gapFilledVisibilityProduct  = scapeMGapFillOp.getTargetProduct();
-
 
         Map<String, Product> smoothInput = new HashMap<String, Product>(4);
         smoothInput.put("source", sourceProduct);
@@ -152,38 +135,18 @@ public class ScapeMOp extends ScapeMMerisBasisOp implements Constants {
         scapeMVis2AotOp.setScapeMLut(scapeMLut);
         aotProduct = scapeMVis2AotOp.getTargetProduct();
 
-//        Map<String, Product> aotConvertInput = new HashMap<String, Product>(4);
-//        aotConvertInput.put("source", sourceProduct);
-//        aotConvertInput.put("visibility", smoothedVisibilityProduct);
-//        Map<String, Object> aotConvertParams = new HashMap<String, Object>(1);
-//        aotConvertParams.put("scapeMLut", scapeMLut);
-//        aotProduct = GPF.createProduct(OperatorSpi.getOperatorAlias(ScapeMVis2AotOp.class),
-//                                       aotConvertParams, aotConvertInput);
-
         final long t6 = System.currentTimeMillis();
         getLogger().info("step 4 "+(t6-t5)+" ms");
 
         // derive CWV...
         // derive reflectance...
-//        Map<String, Product> atmosCorrInput = new HashMap<String, Product>(4);
-//        atmosCorrInput.put("source", sourceProduct);
-//        atmosCorrInput.put("cloud", cloudProduct);
-//        atmosCorrInput.put("visibility", smoothedVisibilityProduct);
-//        Map<String, Object> atmosCorrParams = new HashMap<String, Object>(1);
-//        atmosCorrParams.put("scapeMLut", scapeMLut);
-//        atmosCorrParams.put("computeOverWater", computeOverWater);
-//        atmosCorrParams.put("useDEM", useDEM);
-//        atmosCorrParams.put("outputRhoToa", outputRhoToa);
-//        atmosCorrParams.put("outputReflBand2", outputReflBand2);
-//        atmosCorrProduct = GPF.createProduct(OperatorSpi.getOperatorAlias(ScapeMAtmosCorrOp.class),
-//                                             atmosCorrParams, atmosCorrInput);
-
         final ScapeMAtmosCorrOp scapeMAtmosCorrOp = new ScapeMAtmosCorrOp();
         scapeMAtmosCorrOp.setSourceProduct("source", sourceProduct);
         scapeMAtmosCorrOp.setSourceProduct("cloud", cloudProduct);
         scapeMAtmosCorrOp.setSourceProduct("visibility", smoothedVisibilityProduct);
         scapeMAtmosCorrOp.setParameter("computeOverWater", computeOverWater);
         scapeMAtmosCorrOp.setParameter("useDEM", useDEM);
+        scapeMAtmosCorrOp.setParameter("useConstantWv", useConstantWv);
         scapeMAtmosCorrOp.setParameter("outputRhoToa", outputRhoToa);
         scapeMAtmosCorrOp.setParameter("outputReflBand2", outputReflBand2);
         scapeMAtmosCorrOp.setScapeMLut(scapeMLut);
@@ -192,13 +155,13 @@ public class ScapeMOp extends ScapeMMerisBasisOp implements Constants {
         final long t7 = System.currentTimeMillis();
         getLogger().info("step 5 "+(t7-t6)+" ms");
 
-//        targetProduct = atmosCorrProduct;
+        targetProduct = atmosCorrProduct;
 //        targetProduct = cellVisibilityProduct;
-        targetProduct = gapFilledVisibilityProduct;
+//        targetProduct = gapFilledVisibilityProduct;
 //        targetProduct = smoothedVisibilityProduct;
         ProductUtils.copyFlagBands(cloudProduct, targetProduct, true);
         ProductUtils.copyMasks(cloudProduct, targetProduct);
-//        ProductUtils.copyBand(ScapeMConstants.AOT550_BAND_NAME, aotProduct, atmosCorrProduct, true);
+        ProductUtils.copyBand(ScapeMConstants.AOT550_BAND_NAME, aotProduct, atmosCorrProduct, true);
     }
 
     private void checkProductStartStopTimes() {

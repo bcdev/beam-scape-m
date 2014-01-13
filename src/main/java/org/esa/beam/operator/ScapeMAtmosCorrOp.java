@@ -255,8 +255,7 @@ public class ScapeMAtmosCorrOp extends ScapeMMerisBasisOp implements Constants {
                 }
             }
         } catch (Exception e) {
-            // todo
-            e.printStackTrace();
+            throw new OperatorException("An unexpected error occurred during atmospheric correction: ", e);
         }
     }
 
