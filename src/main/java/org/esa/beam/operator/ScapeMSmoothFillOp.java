@@ -115,13 +115,6 @@ public class ScapeMSmoothFillOp extends ScapeMMerisBasisOp implements Constants 
             boolean isRightEdge = (targetRect.x >= rightEdge - pixelsPerCell);
             boolean isLowerEdge = (targetRect.y >= lowerEdge - pixelsPerCell);
 
-            if (targetRect.x == 1080 && targetRect.y == 0) {
-                System.out.println("targetRect = " + targetRect);
-            }
-            if (targetRect.x == 0 && targetRect.y == 1440) {
-                System.out.println("targetRect = " + targetRect);
-            }
-
             double[] rightEdgeVisibility = null;
             if (isRightEdge) {
                 rightEdgeVisibility = new double[targetRect.height];
