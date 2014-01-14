@@ -271,13 +271,6 @@ public class ScapeMAtmosCorrOp extends ScapeMMerisBasisOp implements Constants {
         if (outputRhoToa) {
             rhoToaBands = addBandGroup(TOA_BAND_PREFIX);
         }
-
-        // todo: check if specific flag band is needed
-//        flagBand = targetProduct.addBand(CORR_FLAGS, ProductData.TYPE_INT16);
-//        FlagCoding flagCoding = createFlagCoding();
-//        flagBand.setSampleCoding(flagCoding);
-//        targetProduct.getFlagCodingGroup().add(flagCoding);
-
     }
 
     private Band[] addBandGroup(String prefix) {
@@ -291,7 +284,7 @@ public class ScapeMAtmosCorrOp extends ScapeMMerisBasisOp implements Constants {
                 ProductUtils.copySpectralBandProperties(sourceProduct.getBand(srcBandName), targetBand);
                 targetBand.setUnit("dl");
                 targetBand.setNoDataValueUsed(true);
-                targetBand.setNoDataValue(BAD_VALUE);   // todo: check this value
+                targetBand.setNoDataValue(BAD_VALUE);
                 bands[i] = targetBand;
             }
         }
@@ -307,18 +300,6 @@ public class ScapeMAtmosCorrOp extends ScapeMMerisBasisOp implements Constants {
             }
         }
         return bandRaster;
-    }
-
-    // todo: check if needed
-    private static FlagCoding createFlagCoding() {
-        FlagCoding flagCoding = new FlagCoding(CORR_FLAGS);
-        int bitIndex = 0;
-        for (int i = 0; i < L1_BAND_NUM; i++) {
-            flagCoding.addFlag("F_BAD_VALUE_" + (i + 1), BitSetter.setFlag(0, bitIndex), null);
-            bitIndex++;
-            // todo: continue if needed
-        }
-        return flagCoding;
     }
 
     public void setScapeMLut(ScapeMLut scapeMLut) {

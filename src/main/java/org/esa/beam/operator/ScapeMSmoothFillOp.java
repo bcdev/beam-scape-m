@@ -101,25 +101,35 @@ public class ScapeMSmoothFillOp extends ScapeMMerisBasisOp implements Constants 
         Rectangle targetRect = targetTile.getRectangle();
         Rectangle sourceRect = rectCalculator.extend(targetRect);
 
-        Band visibilityBand = smoothedProduct.getBand(ScapeMConstants.VISIBILITY_BAND_NAME);
-        Tile visibilityTile = getSourceTile(visibilityBand, sourceRect);
+        Band gapFilledVisibilityBand = gapFilledProduct.getBand(ScapeMConstants.VISIBILITY_BAND_NAME);
+        Tile gapFilledVisibilityTile = getSourceTile(gapFilledVisibilityBand, sourceRect);
+
+        Band smoothedVisibilityBand = smoothedProduct.getBand(ScapeMConstants.VISIBILITY_BAND_NAME);
+        Tile smoothedVisibilityTile = getSourceTile(smoothedVisibilityBand, sourceRect);
 
         pm.beginTask("Processing frame...", targetRect.height + 1);
         try {
             // we may have to re-fill pixels from right and lower edge of the scene which were left empty
             // by initial smoothing, which works on complete 30x30km cells only
 
-            boolean isRightEdge = (targetRect.x >= rightEdge);
-            boolean isLowerEdge = (targetRect.y >= lowerEdge);
+            boolean isRightEdge = (targetRect.x >= rightEdge - pixelsPerCell);
+            boolean isLowerEdge = (targetRect.y >= lowerEdge - pixelsPerCell);
+
+            if (targetRect.x == 1080 && targetRect.y == 0) {
+                System.out.println("targetRect = " + targetRect);
+            }
+            if (targetRect.x == 0 && targetRect.y == 1440) {
+                System.out.println("targetRect = " + targetRect);
+            }
 
             double[] rightEdgeVisibility = null;
             if (isRightEdge) {
                 rightEdgeVisibility = new double[targetRect.height];
                 for (int y = targetRect.y; y < targetRect.y + targetRect.height; y++) {
-                    rightEdgeVisibility[y - targetRect.y] = getRightEdgeVisibilitySample(visibilityTile, y);
+                    rightEdgeVisibility[y - targetRect.y] = getRightEdgeVisibilitySample(smoothedVisibilityTile, y);
                     for (int x = targetRect.x; x < targetRect.x + targetRect.width; x++) {
-                        if (visibilityTile.getSampleDouble(x, y) != ScapeMConstants.VISIBILITY_NODATA_VALUE) {
-                            targetTile.setSample(x, y, visibilityTile.getSampleDouble(x, y));
+                        if (smoothedVisibilityTile.getSampleDouble(x, y) != ScapeMConstants.VISIBILITY_NODATA_VALUE) {
+                            targetTile.setSample(x, y, smoothedVisibilityTile.getSampleDouble(x, y));
                         } else {
                             targetTile.setSample(x, y, rightEdgeVisibility[y - targetRect.y]);
                         }
@@ -129,12 +139,12 @@ public class ScapeMSmoothFillOp extends ScapeMMerisBasisOp implements Constants 
             if (isLowerEdge) {
                 double[] lowerEdgeVisibility = new double[targetRect.width];
                 for (int x = targetRect.x; x < targetRect.x + targetRect.width; x++) {
-                    lowerEdgeVisibility[x - targetRect.x] = getLowerEdgeVisibilitySample(visibilityTile, x);
+                    lowerEdgeVisibility[x - targetRect.x] = getLowerEdgeVisibilitySample(smoothedVisibilityTile, x);
                 }
                 for (int y = targetRect.y; y < targetRect.y + targetRect.height; y++) {
                     for (int x = targetRect.x; x < targetRect.x + targetRect.width; x++) {
-                        if (visibilityTile.getSampleDouble(x, y) != ScapeMConstants.VISIBILITY_NODATA_VALUE) {
-                            targetTile.setSample(x, y, visibilityTile.getSampleDouble(x, y));
+                        if (smoothedVisibilityTile.getSampleDouble(x, y) != ScapeMConstants.VISIBILITY_NODATA_VALUE) {
+                            targetTile.setSample(x, y, smoothedVisibilityTile.getSampleDouble(x, y));
                         } else {
                             double vis;
                             if (isRightEdge &&
@@ -150,13 +160,23 @@ public class ScapeMSmoothFillOp extends ScapeMMerisBasisOp implements Constants 
                 }
             }
             if (!isRightEdge && !isLowerEdge) {
-                // no edge - copy existing values
+                // no edge - copy existing smoothed values
                 for (int y = targetRect.y; y < targetRect.y + targetRect.height; y++) {
                     for (int x = targetRect.x; x < targetRect.x + targetRect.width; x++) {
-                        targetTile.setSample(x, y, visibilityTile.getSampleDouble(x, y));
+                        targetTile.setSample(x, y, smoothedVisibilityTile.getSampleDouble(x, y));
                     }
                 }
             }
+
+            // if there are still zeros, take unsmoothed values
+            for (int y = targetRect.y; y < targetRect.y + targetRect.height; y++) {
+                for (int x = targetRect.x; x < targetRect.x + targetRect.width; x++) {
+                    if (targetTile.getSampleDouble(x, y) == ScapeMConstants.VISIBILITY_NODATA_VALUE) {
+                        targetTile.setSample(x, y, gapFilledVisibilityTile.getSampleDouble(x, y));
+                    }
+                }
+            }
+
             pm.worked(1);
         } catch (Exception e) {
             // todo

@@ -11,16 +11,11 @@
             <defaultParameters><![CDATA[<parameters>
     <!-- ***********Scape-M Parameters start here*********** -->
 
-     <!-- Whether to compute over all water (not just over lakes) -->
-     <computeOverWater>true</computeOverWater>
-
      <!-- Whether to write rhoToa bands to target product -->
      <outputRhoToa>false</outputRhoToa>
 
      <!-- Whether to write 441nm band to target product -->
      <outputReflBand2>false</outputReflBand2>
-
-
 
 </parameters>]]></defaultParameters>
             <outputFormats>Multi-GeoTIFF,BEAM-DIMAP,NetCDF</outputFormats>

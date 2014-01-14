@@ -538,19 +538,19 @@ public class ScapeMAlgorithm implements Constants {
                     final double[] reflPix = new double[]{pix1, pix2};
 
                     final double[] hsfArrayLUT = scapeMLut.getHsfArrayLUT();
-                    int hsIndex = dimVis / 2;     // todo: do it like this (it works reasonably), or raise flag if no index is found?
+                    int hsIndex = 0;
                     for (int i = 0; i < dimHsurf - 1; i++) {
                         if (demPix >= hsfArrayLUT[i]) {
                             hsIndex = i;
                         }
                     }
-                    double hsP = 0.5;    // todo: s.a.
+                    double hsP = 0.0;
                     if (hsIndex >= 0 && hsIndex < hsfArrayLUT.length - 1) {
                         hsP = (demPix - hsfArrayLUT[hsIndex]) /
                                 (hsfArrayLUT[hsIndex + 1] - hsfArrayLUT[hsIndex]);
                     }
 
-                    int visIndex = dimVis / 2;    // todo: s.a.
+                    int visIndex = 0;
                     final double[] visArrayLUT = scapeMLut.getVisArrayLUT();
                     for (int i = 0; i < dimVis - 1; i++) {
                         if (visPix >= visArrayLUT[i]) {
@@ -558,7 +558,7 @@ public class ScapeMAlgorithm implements Constants {
                         }
                     }
 
-                    double visP = 0.5;       // todo: s.a.
+                    double visP = 0.0;
                     if (visIndex >= 0 && visIndex < visArrayLUT.length - 1) {
                         visP = (visPix - visArrayLUT[visIndex]) /
                                 (visArrayLUT[visIndex + 1] - visArrayLUT[visIndex]);
