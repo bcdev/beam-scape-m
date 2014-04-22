@@ -69,12 +69,17 @@ public class ScapeMSmoothOp extends ScapeMMerisBasisOp implements Constants {
         final float upscaleFactor = (float) pixelsPerCell;
         final float downscaleFactor = 1.0f / upscaleFactor;
 
-        ImageLayout targetImageLayout = new ImageLayout();
-        targetImageLayout.setTileWidth(sourceImage.getTileWidth());
-        targetImageLayout.setTileHeight(sourceImage.getTileHeight());
-        final RenderingHints renderingHints = new RenderingHints(JAI.KEY_IMAGE_LAYOUT, targetImageLayout);
-        renderingHints.put(JAI.KEY_IMAGE_LAYOUT, targetImageLayout);
-        renderingHints.put(JAI.KEY_BORDER_EXTENDER, BorderExtender.createInstance(BorderExtender.BORDER_COPY));
+        ImageLayout downImageLayout = new ImageLayout();
+        downImageLayout.setTileWidth(1);
+        downImageLayout.setTileHeight(1);
+        final RenderingHints downRenderingHints = new RenderingHints(JAI.KEY_IMAGE_LAYOUT, downImageLayout);
+        downRenderingHints.put(JAI.KEY_BORDER_EXTENDER, BorderExtender.createInstance(BorderExtender.BORDER_COPY));
+
+        ImageLayout upImageLayout = new ImageLayout();
+        upImageLayout.setTileWidth(sourceImage.getTileWidth());
+        upImageLayout.setTileHeight(sourceImage.getTileHeight());
+        final RenderingHints upRenderingHints = new RenderingHints(JAI.KEY_IMAGE_LAYOUT, upImageLayout);
+        upRenderingHints.put(JAI.KEY_BORDER_EXTENDER, BorderExtender.createInstance(BorderExtender.BORDER_COPY));
 
         // we come with constant values over a 30x30 km cell, so first downscale to an image with 1 pixel
         // per each of these cells...
@@ -83,14 +88,14 @@ public class ScapeMSmoothOp extends ScapeMMerisBasisOp implements Constants {
                                                       downscaleFactor,
                                                       0.0f, 0.0f,
                                                       Interpolation.getInstance(
-                                                              Interpolation.INTERP_NEAREST), renderingHints);
+                                                              Interpolation.INTERP_NEAREST), downRenderingHints);
         // now do the smoothing with upscaling to original size using bicubic interpolation...
         RenderedOp targetImage = ScaleDescriptor.create(downImage,
                                                         upscaleFactor,
                                                         upscaleFactor,
                                                         0.0f, 0.0f,
                                                         Interpolation.getInstance(
-                                                                Interpolation.INTERP_BICUBIC), renderingHints);
+                                                                Interpolation.INTERP_BICUBIC), upRenderingHints);
 
         Band targetBand = ProductUtils.copyBand(ScapeMConstants.VISIBILITY_BAND_NAME, sourceProduct, targetProduct, false);
         targetBand.setSourceImage(targetImage);
