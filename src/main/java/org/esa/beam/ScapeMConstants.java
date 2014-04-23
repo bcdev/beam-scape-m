@@ -16,6 +16,9 @@ public class ScapeMConstants {
             761.606f, 778.498f, 864.833f, 884.849f, 899.86f
     };
 
+    public static final int L1_BAND_NUM  = 15;
+    public static final int BAD_VALUE  = -1;
+
     public final static double solIrr7 = 1424.7742;
     public final static double solIrr9 = 1225.6102;
 
@@ -66,7 +69,7 @@ public class ScapeMConstants {
 
     public static final int CLOUD_INVALID_BIT = 0;
     public static final int CLOUD_CERTAIN_BIT = 1;
-    public static final int CLOUD_PRESUMABLY_BIT = 2;
+//    public static final int CLOUD_PRESUMABLY_BIT = 2;
     public static final int CLOUD_OCEAN_BIT = 3;
 
 }

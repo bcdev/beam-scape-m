@@ -12,7 +12,6 @@ import org.esa.beam.framework.dataop.dem.ElevationModel;
 import org.esa.beam.framework.gpf.Tile;
 import org.esa.beam.io.LutAccess;
 import org.esa.beam.math.Powell;
-import org.esa.beam.meris.l2auxdata.Constants;
 import org.esa.beam.util.*;
 import org.esa.beam.util.math.MathUtils;
 
@@ -26,7 +25,7 @@ import java.util.List;
  *
  * @author Tonio Fincke, Olaf Danne
  */
-public class ScapeMAlgorithm implements Constants {
+public class ScapeMAlgorithm {
 
     /**
      * Determines if cell is regarded as 'clear land' : > 35% must not be water or cloud
@@ -123,9 +122,9 @@ public class ScapeMAlgorithm implements Constants {
         double[][] hSurf = new double[rect.width][rect.height];
         for (int y = rect.y; y < rect.y + rect.height; y++) {
             for (int x = rect.x; x < rect.x + rect.width; x++) {
-                GeoPos geoPos = null;
+                GeoPos geoPos;
                 if (geoCoding.canGetGeoPos()) {
-                    geoPos = geoCoding.getGeoPos(new PixelPos(x, y), geoPos);
+                    geoPos = geoCoding.getGeoPos(new PixelPos(x, y), null);
                     try {
                         hSurf[x - rect.x][y - rect.y] = 0.001 * elevationModel.getElevation(geoPos);
                     } catch (Exception e) {
@@ -285,11 +284,11 @@ public class ScapeMAlgorithm implements Constants {
             double[][] refPixelsBand0 =
                     extractRefPixels(0, hsurfArrayCell, hsurfMeanCell, cosSzaArrayCell, cosSzaMeanCell, toaArrayCell);
             if (refPixelsBand0 != null && refPixelsBand0.length > 0) {
-                double[][][] refPixels = new double[L1_BAND_NUM][refPixelsBand0.length][refPixelsBand0[0].length];
+                double[][][] refPixels = new double[ScapeMConstants.L1_BAND_NUM][refPixelsBand0.length][refPixelsBand0[0].length];
                 refPixels[0] = refPixelsBand0;
 
                 boolean invalid = false;
-                for (int bandId = 1; bandId < L1_BAND_NUM; bandId++) {
+                for (int bandId = 1; bandId < ScapeMConstants.L1_BAND_NUM; bandId++) {
                     refPixels[bandId] =
                             extractRefPixels(bandId, hsurfArrayCell, hsurfMeanCell, cosSzaArrayCell, cosSzaMeanCell, toaArrayCell);
                     if (refPixels[bandId] == null && refPixels[bandId].length > 0) {
@@ -484,7 +483,7 @@ public class ScapeMAlgorithm implements Constants {
      * @param rect               - the target rectangle
      * @param visibilityTile     - the visibility tile
      * @param clearPixelStrategy - strategy how clear pixels are determined
-     * @param useConstantWv
+     * @param useConstantWv      - use constant Wv if set
      * @param toaArrayCell       - the TOA cell array
      * @param hsurfArray         - the elevation cell array
      * @param cosSzaArray        - the cos(SZA) cell array
@@ -522,7 +521,7 @@ public class ScapeMAlgorithm implements Constants {
         final int dimVis = scapeMLut.getVisArrayLUT().length;
         final int dimHsurf = scapeMLut.getHsfArrayLUT().length;
 
-        ScapeMResult scapeMResult = new ScapeMResult(L1_BAND_NUM, rect.width, rect.height);
+        ScapeMResult scapeMResult = new ScapeMResult(ScapeMConstants.L1_BAND_NUM, rect.width, rect.height);
 
         for (int y = rect.y; y < rect.y + rect.height; y++) {
             for (int x = rect.x; x < rect.x + rect.width; x++) {
@@ -564,8 +563,8 @@ public class ScapeMAlgorithm implements Constants {
                                 (visArrayLUT[visIndex + 1] - visArrayLUT[visIndex]);
                     }
 
-                    double[][] lpwSp = new double[L1_BAND_NUM][dimWv];
-                    for (int bandId = 0; bandId < L1_BAND_NUM; bandId++) {
+                    double[][] lpwSp = new double[ScapeMConstants.L1_BAND_NUM][dimWv];
+                    for (int bandId = 0; bandId < ScapeMConstants.L1_BAND_NUM; bandId++) {
                         for (int i = 0; i < dimWv; i++) {
                             lpwSp[bandId][i] = (1.0 - visP) * (1.0 - hsP) * lpw[bandId][i][visIndex][hsIndex] +
                                     hsP * (1.0 - visP) * lpw[bandId][i][visIndex][hsIndex + 1] +
@@ -576,9 +575,9 @@ public class ScapeMAlgorithm implements Constants {
                     }
 
                     // adjust etw:
-                    double[][][][] etw = new double[L1_BAND_NUM][dimWv][dimVis][dimHsurf];
+                    double[][][][] etw = new double[ScapeMConstants.L1_BAND_NUM][dimWv][dimVis][dimHsurf];
                     final double cosSza = cosSzaArray[x - rect.x][y - rect.y];
-                    for (int bandId = 0; bandId < L1_BAND_NUM; bandId++) {
+                    for (int bandId = 0; bandId < ScapeMConstants.L1_BAND_NUM; bandId++) {
                         for (int i = 0; i < scapeMLut.getCwvArrayLUT().length; i++) {
                             for (int j = 0; j < visArrayLUT.length; j++) {
                                 for (int k = 0; k < hsfArrayLUT.length; k++) {
@@ -596,9 +595,9 @@ public class ScapeMAlgorithm implements Constants {
                         }
                     }
 
-                    double[][] etwSp = new double[L1_BAND_NUM][dimWv];
-                    double[][] sabSp = new double[L1_BAND_NUM][dimWv];
-                    for (int bandId = 0; bandId < L1_BAND_NUM; bandId++) {
+                    double[][] etwSp = new double[ScapeMConstants.L1_BAND_NUM][dimWv];
+                    double[][] sabSp = new double[ScapeMConstants.L1_BAND_NUM][dimWv];
+                    for (int bandId = 0; bandId < ScapeMConstants.L1_BAND_NUM; bandId++) {
                         for (int i = 0; i < dimWv; i++) {
                             etwSp[bandId][i] = (1.0 - visP) * (1.0 - hsP) * etw[bandId][i][visIndex][hsIndex] +
                                     hsP * (1.0 - visP) * etw[bandId][i][visIndex][hsIndex + 1] +
@@ -653,10 +652,10 @@ public class ScapeMAlgorithm implements Constants {
                     }
                     scapeMResult.setWvPixel(x - rect.x, y - rect.y, wvResult);
 
-                    double[] lpwAc = new double[L1_BAND_NUM];
-                    double[] etwAc = new double[L1_BAND_NUM];
-                    double[] sabAc = new double[L1_BAND_NUM];
-                    for (int i = 0; i < L1_BAND_NUM; i++) {
+                    double[] lpwAc = new double[ScapeMConstants.L1_BAND_NUM];
+                    double[] etwAc = new double[ScapeMConstants.L1_BAND_NUM];
+                    double[] sabAc = new double[ScapeMConstants.L1_BAND_NUM];
+                    for (int i = 0; i < ScapeMConstants.L1_BAND_NUM; i++) {
                         if (i != 10 && i != 14) {
                             lpwAc[i] = lpwSp[i][wvInf] + wvP * (lpwSp[i][wvInf + 1] - lpwSp[i][wvInf]);
                             etwAc[i] = etwSp[i][wvInf] + wvP * (etwSp[i][wvInf + 1] - etwSp[i][wvInf]);
@@ -670,7 +669,7 @@ public class ScapeMAlgorithm implements Constants {
                     }
                 } else {
                     // invalid due to one or more of the above cases
-                    for (int i = 0; i < L1_BAND_NUM; i++) {
+                    for (int i = 0; i < ScapeMConstants.L1_BAND_NUM; i++) {
                         scapeMResult.setReflPixel(i, x - rect.x, y - rect.y, ScapeMConstants.AC_NODATA);
                     }
                     scapeMResult.setWvPixel(x - rect.x, y - rect.y, ScapeMConstants.AC_NODATA);
@@ -697,14 +696,14 @@ public class ScapeMAlgorithm implements Constants {
 
         double visRefined;
 
-        double[][] lpw = new double[L1_BAND_NUM][scapeMLut.getVisArrayLUT().length];
-        double[][] etw = new double[L1_BAND_NUM][scapeMLut.getVisArrayLUT().length];
-        double[][] sab = new double[L1_BAND_NUM][scapeMLut.getVisArrayLUT().length];
+        double[][] lpw = new double[ScapeMConstants.L1_BAND_NUM][scapeMLut.getVisArrayLUT().length];
+        double[][] etw = new double[ScapeMConstants.L1_BAND_NUM][scapeMLut.getVisArrayLUT().length];
+        double[][] sab = new double[ScapeMConstants.L1_BAND_NUM][scapeMLut.getVisArrayLUT().length];
 
         for (int i = 0; i < scapeMLut.getVisArrayLUT().length; i++) {
             double visArrayVal = Math.max(scapeMLut.getVisMin(), Math.min(scapeMLut.getVisMax(), scapeMLut.getVisArrayLUT()[i]));
             double[][] fInt = LutAccess.interpolAtmParamLut(scapeMLut.getAtmParamLut(), vza, sza, raa, hsurfMeanCell, visArrayVal, wvInit);
-            for (int bandId = 0; bandId < L1_BAND_NUM; bandId++) {
+            for (int bandId = 0; bandId < ScapeMConstants.L1_BAND_NUM; bandId++) {
                 lpw[bandId][i] = fInt[bandId][0];
                 etw[bandId][i] = fInt[bandId][1] * cosSzaMeanCell + fInt[bandId][2];
                 sab[bandId][i] = fInt[bandId][4];
@@ -736,8 +735,8 @@ public class ScapeMAlgorithm implements Constants {
         ToaMinimization toaMinimization = new ToaMinimization(visLim, scapeMLut.getVisArrayLUT(), lpw, etw, sab, 0.0);
         final double[][] xiInput = xi.clone();
         for (int i = 0; i < nRefSets; i++) {
-            double[][] refSetPixels = new double[L1_BAND_NUM][ScapeMConstants.NUM_REF_PIXELS];
-            for (int j = 0; j < L1_BAND_NUM; j++) {
+            double[][] refSetPixels = new double[ScapeMConstants.L1_BAND_NUM][ScapeMConstants.NUM_REF_PIXELS];
+            for (int j = 0; j < ScapeMConstants.L1_BAND_NUM; j++) {
                 System.arraycopy(refPixels[j][i], 0, refSetPixels[j], 0, ScapeMConstants.NUM_REF_PIXELS);
             }
             toaMinimization.setRefPixels(refSetPixels);

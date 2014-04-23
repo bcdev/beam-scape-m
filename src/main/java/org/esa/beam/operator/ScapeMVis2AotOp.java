@@ -17,7 +17,6 @@ import org.esa.beam.framework.gpf.annotations.OperatorMetadata;
 import org.esa.beam.framework.gpf.annotations.Parameter;
 import org.esa.beam.framework.gpf.annotations.SourceProduct;
 import org.esa.beam.framework.gpf.annotations.TargetProduct;
-import org.esa.beam.meris.l2auxdata.Constants;
 
 import java.awt.*;
 
@@ -31,7 +30,7 @@ import java.awt.*;
         copyright = "(c) 2013 Brockmann Consult",
         internal = true,
         description = "Operator for visibility to AOT conversion.")
-public class ScapeMVis2AotOp extends ScapeMMerisBasisOp implements Constants {
+public class ScapeMVis2AotOp extends ScapeMMerisBasisOp {
 
     @Parameter(description = "If set, use GETASSE30 DEM, otherwise get altitudes from product TPGs",
                label = "Use GETASSE30 DEM",

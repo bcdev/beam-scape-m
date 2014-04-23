@@ -19,7 +19,6 @@ import org.esa.beam.framework.gpf.annotations.Parameter;
 import org.esa.beam.framework.gpf.annotations.SourceProduct;
 import org.esa.beam.framework.gpf.annotations.TargetProduct;
 import org.esa.beam.meris.brr.HelperFunctions;
-import org.esa.beam.meris.l2auxdata.Constants;
 import org.esa.beam.util.ClearLandAndWaterPixelStrategy;
 import org.esa.beam.util.ClearLandPixelStrategy;
 import org.esa.beam.util.ClearPixelStrategy;
@@ -38,7 +37,7 @@ import java.util.Calendar;
                   copyright = "(c) 2013 Brockmann Consult",
                   internal = true,
                   description = "Operator for MERIS atmospheric correction with SCAPE-M algorithm: cell visibility retrieval part.")
-public class ScapeMVisibilityOp extends ScapeMMerisBasisOp implements Constants {
+public class ScapeMVisibilityOp extends ScapeMMerisBasisOp {
 
     //@Parameter(description = "ScapeM AOT Lookup table")
     private ScapeMLut scapeMLut;
@@ -63,13 +62,12 @@ public class ScapeMVisibilityOp extends ScapeMMerisBasisOp implements Constants 
 
     public static final String RADIANCE_BAND_PREFIX = "radiance";
 
-    private String demName = ScapeMConstants.DEFAULT_DEM_NAME;
-
     private ElevationModel elevationModel;
 
     @Override
     public void initialize() throws OperatorException {
         if (useDEM) {
+            String demName = ScapeMConstants.DEFAULT_DEM_NAME;
             final ElevationModelDescriptor demDescriptor = ElevationModelRegistry.getInstance().getDescriptor(demName);
             if (demDescriptor == null || !demDescriptor.isDemInstalled()) {
                 throw new OperatorException("DEM not installed: " + demName + ". Please install with Module Manager.");
@@ -100,14 +98,14 @@ public class ScapeMVisibilityOp extends ScapeMMerisBasisOp implements Constants 
         }
         clearPixelStrategy.setTile(getSourceTile(cloudProduct.getBandAt(0), targetRect));
 
-        Tile[] radianceTiles = new Tile[L1_BAND_NUM];
-        Band[] radianceBands = new Band[L1_BAND_NUM];
-        for (int bandId = 0; bandId < L1_BAND_NUM; bandId++) {
+        Tile[] radianceTiles = new Tile[ScapeMConstants.L1_BAND_NUM];
+        Band[] radianceBands = new Band[ScapeMConstants.L1_BAND_NUM];
+        for (int bandId = 0; bandId < ScapeMConstants.L1_BAND_NUM; bandId++) {
             radianceBands[bandId] = sourceProduct.getBand(RADIANCE_BAND_PREFIX + "_" + (bandId + 1));
             radianceTiles[bandId] = getSourceTile(radianceBands[bandId], targetRect);
         }
 
-        double[] toaMinCell = new double[L1_BAND_NUM];
+        double[] toaMinCell = new double[ScapeMConstants.L1_BAND_NUM];
 
         final GeoCoding geoCoding = sourceProduct.getGeoCoding();
 
@@ -141,8 +139,8 @@ public class ScapeMVisibilityOp extends ScapeMMerisBasisOp implements Constants 
 
 
                 final int doy = sourceProduct.getStartTime().getAsCalendar().get(Calendar.DAY_OF_YEAR);
-                double[][][] toaArrayCell = new double[L1_BAND_NUM][targetRect.width][targetRect.height];
-                for (int bandId = 0; bandId < L1_BAND_NUM; bandId++) {
+                double[][][] toaArrayCell = new double[ScapeMConstants.L1_BAND_NUM][targetRect.width][targetRect.height];
+                for (int bandId = 0; bandId < ScapeMConstants.L1_BAND_NUM; bandId++) {
                     toaArrayCell[bandId] = ScapeMAlgorithm.getToaArrayCell(radianceTiles[bandId], targetRect, doy);
                     toaMinCell[bandId] = ScapeMAlgorithm.getToaMinCell(toaArrayCell[bandId]);
                 }

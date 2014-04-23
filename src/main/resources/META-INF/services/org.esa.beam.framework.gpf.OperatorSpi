@@ -1,7 +1,6 @@
 org.esa.beam.operator.ScapeMOp$Spi
 org.esa.beam.operator.ScapeMVisibilityOp$Spi
 org.esa.beam.operator.ScapeMGapFillOp$Spi
-org.esa.beam.operator.ScapeMSmoothOp$Spi
-org.esa.beam.operator.ScapeMSmoothFillOp$Spi
+org.esa.beam.operator.ScapeMSmoothSimpleKernelOp$Spi
 org.esa.beam.operator.ScapeMVis2AotOp$Spi
 org.esa.beam.operator.ScapeMAtmosCorrOp$Spi

@@ -11,7 +11,6 @@ import org.esa.beam.framework.gpf.Tile;
 import org.esa.beam.framework.gpf.annotations.OperatorMetadata;
 import org.esa.beam.framework.gpf.annotations.SourceProduct;
 import org.esa.beam.framework.gpf.annotations.TargetProduct;
-import org.esa.beam.meris.l2auxdata.Constants;
 import org.esa.beam.util.RectangleExtender;
 
 import java.awt.*;
@@ -26,7 +25,7 @@ import java.awt.*;
         copyright = "(c) 2013 Brockmann Consult",
         internal = true,
         description = "Provides the visibility gap filling as used in IDL breadboard.")
-public class ScapeMGapFillOp extends ScapeMMerisBasisOp implements Constants {
+public class ScapeMGapFillOp extends ScapeMMerisBasisOp {
 
     @SourceProduct(alias = "source")
     private Product sourceProduct;

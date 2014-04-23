@@ -3,7 +3,10 @@ package org.esa.beam.operator;
 import com.bc.ceres.core.ProgressMonitor;
 import org.esa.beam.ScapeMConstants;
 import org.esa.beam.dataio.envisat.EnvisatConstants;
-import org.esa.beam.framework.datamodel.*;
+import org.esa.beam.framework.datamodel.Band;
+import org.esa.beam.framework.datamodel.GeoCoding;
+import org.esa.beam.framework.datamodel.Product;
+import org.esa.beam.framework.datamodel.ProductData;
 import org.esa.beam.framework.dataop.dem.ElevationModel;
 import org.esa.beam.framework.dataop.dem.ElevationModelDescriptor;
 import org.esa.beam.framework.dataop.dem.ElevationModelRegistry;
@@ -15,15 +18,13 @@ import org.esa.beam.framework.gpf.annotations.OperatorMetadata;
 import org.esa.beam.framework.gpf.annotations.Parameter;
 import org.esa.beam.framework.gpf.annotations.SourceProduct;
 import org.esa.beam.framework.gpf.annotations.TargetProduct;
-import org.esa.beam.gpf.operators.meris.MerisBasisOp;
-import org.esa.beam.idepix.util.IdepixUtils;
 import org.esa.beam.io.LutAccess;
 import org.esa.beam.meris.brr.HelperFunctions;
-import org.esa.beam.meris.l2auxdata.Constants;
-import org.esa.beam.util.*;
+import org.esa.beam.util.ClearLandAndWaterPixelStrategy;
+import org.esa.beam.util.ClearLandPixelStrategy;
+import org.esa.beam.util.ClearPixelStrategy;
+import org.esa.beam.util.ProductUtils;
 
-import javax.media.jai.BorderExtender;
-import javax.media.jai.RenderedOp;
 import java.awt.*;
 import java.util.Calendar;
 import java.util.Map;
@@ -38,7 +39,7 @@ import java.util.Map;
                   copyright = "(c) 2013 Brockmann Consult",
                   internal = true,
                   description = "Operator for MERIS atmospheric correction with SCAPE-M algorithm: AC part.")
-public class ScapeMAtmosCorrOp extends ScapeMMerisBasisOp implements Constants {
+public class ScapeMAtmosCorrOp extends ScapeMMerisBasisOp {
 
     //@Parameter(description = "ScapeM AOT Lookup table")
     private ScapeMLut scapeMLut;
@@ -84,22 +85,19 @@ public class ScapeMAtmosCorrOp extends ScapeMMerisBasisOp implements Constants {
     @TargetProduct
     private Product targetProduct;
 
-    private String demName = ScapeMConstants.DEFAULT_DEM_NAME;
-
     private ElevationModel elevationModel;
 
     private Band[] reflBands;
     private Band[] rhoToaBands;
-    private Band flagBand;
 
     public static final String RADIANCE_BAND_PREFIX = "radiance";
     public static final String REFL_BAND_PREFIX = "refl";
     public static final String TOA_BAND_PREFIX = "refl_toa";
-    public static final String CORR_FLAGS = "scapem_corr_flags";
 
     @Override
     public void initialize() throws OperatorException {
         if (useDEM) {
+            String demName = ScapeMConstants.DEFAULT_DEM_NAME;
             final ElevationModelDescriptor demDescriptor = ElevationModelRegistry.getInstance().getDescriptor(demName);
             if (demDescriptor == null || !demDescriptor.isDemInstalled()) {
                 throw new OperatorException("DEM not installed: " + demName + ". Please install with Module Manager.");
@@ -128,10 +126,10 @@ public class ScapeMAtmosCorrOp extends ScapeMMerisBasisOp implements Constants {
         }
         clearPixelStrategy.setTile(getSourceTile(cloudProduct.getBandAt(0), targetRect));
 
-        Tile[] radianceTiles = new Tile[L1_BAND_NUM];
-        Band[] radianceBands = new Band[L1_BAND_NUM];
-        double[] solirr = new double[L1_BAND_NUM];
-        for (int bandId = 0; bandId < L1_BAND_NUM; bandId++) {
+        Tile[] radianceTiles = new Tile[ScapeMConstants.L1_BAND_NUM];
+        Band[] radianceBands = new Band[ScapeMConstants.L1_BAND_NUM];
+        double[] solirr = new double[ScapeMConstants.L1_BAND_NUM];
+        for (int bandId = 0; bandId < ScapeMConstants.L1_BAND_NUM; bandId++) {
             radianceBands[bandId] = sourceProduct.getBand(RADIANCE_BAND_PREFIX + "_" + (bandId + 1));
             radianceTiles[bandId] = getSourceTile(radianceBands[bandId], targetRect);
             solirr[bandId] = radianceBands[bandId].getSolarFlux() * 1.E-4;
@@ -162,8 +160,8 @@ public class ScapeMAtmosCorrOp extends ScapeMMerisBasisOp implements Constants {
             final double cosSzaMeanCell = ScapeMAlgorithm.getCosSzaMeanCell(cosSzaArrayCell, targetRect, clearPixelStrategy);
 
             final int doy = sourceProduct.getStartTime().getAsCalendar().get(Calendar.DAY_OF_YEAR);
-            double[][][] toaArrayCell = new double[L1_BAND_NUM][targetRect.width][targetRect.height];
-            for (int bandId = 0; bandId < L1_BAND_NUM; bandId++) {
+            double[][][] toaArrayCell = new double[ScapeMConstants.L1_BAND_NUM][targetRect.width][targetRect.height];
+            for (int bandId = 0; bandId < ScapeMConstants.L1_BAND_NUM; bandId++) {
                 toaArrayCell[bandId] = ScapeMAlgorithm.getToaArrayCell(radianceTiles[bandId], targetRect, doy);
             }
 
@@ -176,13 +174,13 @@ public class ScapeMAtmosCorrOp extends ScapeMMerisBasisOp implements Constants {
             final int dimWv = scapeMLut.getCwvArrayLUT().length;
             final int dimVis = scapeMLut.getVisArrayLUT().length;
             final int dimHurf = scapeMLut.getHsfArrayLUT().length;
-            double[][][][] lpw = new double[L1_BAND_NUM][dimWv][dimVis][dimHurf];     // [15][6][7][3]
-            double[][][][] e0tw = new double[L1_BAND_NUM][dimWv][dimVis][dimHurf];
-            double[][][][] ediftw = new double[L1_BAND_NUM][dimWv][dimVis][dimHurf];
-            double[][][][] sab = new double[L1_BAND_NUM][dimWv][dimVis][dimHurf];
-            double[][][][] tDirD = new double[L1_BAND_NUM][dimWv][dimVis][dimHurf];
+            double[][][][] lpw = new double[ScapeMConstants.L1_BAND_NUM][dimWv][dimVis][dimHurf];     // [15][6][7][3]
+            double[][][][] e0tw = new double[ScapeMConstants.L1_BAND_NUM][dimWv][dimVis][dimHurf];
+            double[][][][] ediftw = new double[ScapeMConstants.L1_BAND_NUM][dimWv][dimVis][dimHurf];
+            double[][][][] sab = new double[ScapeMConstants.L1_BAND_NUM][dimWv][dimVis][dimHurf];
+            double[][][][] tDirD = new double[ScapeMConstants.L1_BAND_NUM][dimWv][dimVis][dimHurf];
 
-            for (int bandId = 0; bandId < L1_BAND_NUM; bandId++) {
+            for (int bandId = 0; bandId < ScapeMConstants.L1_BAND_NUM; bandId++) {
                 for (int i = 0; i < dimWv; i++) {
                     for (int j = 0; j < dimVis; j++) {
                         for (int k = 0; k < dimHurf; k++) {
@@ -227,7 +225,7 @@ public class ScapeMAtmosCorrOp extends ScapeMMerisBasisOp implements Constants {
             for (int y = targetRect.y; y < targetRect.y + targetRect.height; y++) {
                 for (int x = targetRect.x; x < targetRect.x + targetRect.width; x++) {
                     wvTile.setSample(x, y, acResult.getWvPixel(x - targetRect.x, y - targetRect.y));
-                    for (int bandId = 0; bandId < L1_BAND_NUM; bandId++) {
+                    for (int bandId = 0; bandId < ScapeMConstants.L1_BAND_NUM; bandId++) {
                         final boolean writeOptionalBands = (bandId == 1 && outputReflBand2);
                         if ((bandId != 1 && bandId != 10 && bandId != 14) || writeOptionalBands) {
                             Tile reflTile = reflTiles[bandId];
@@ -240,7 +238,7 @@ public class ScapeMAtmosCorrOp extends ScapeMMerisBasisOp implements Constants {
                 for (int y = targetRect.y; y < targetRect.y + targetRect.height; y++) {
                     for (int x = targetRect.x; x < targetRect.x + targetRect.width; x++) {
                         double cosSza = cosSzaArrayCell[x - targetRect.x][y - targetRect.y];
-                        for (int bandId = 0; bandId < L1_BAND_NUM; bandId++) {
+                        for (int bandId = 0; bandId < ScapeMConstants.L1_BAND_NUM; bandId++) {
                             final boolean writeOptionalBands = (bandId == 1 && outputReflBand2);
                             if ((bandId != 1 && bandId != 10 && bandId != 14) || writeOptionalBands) {
                                 Tile rhoToaTile = rhoToaTiles[bandId];
@@ -274,8 +272,8 @@ public class ScapeMAtmosCorrOp extends ScapeMMerisBasisOp implements Constants {
     }
 
     private Band[] addBandGroup(String prefix) {
-        Band[] bands = new Band[L1_BAND_NUM];
-        for (int i = 0; i < L1_BAND_NUM; i++) {
+        Band[] bands = new Band[ScapeMConstants.L1_BAND_NUM];
+        for (int i = 0; i < ScapeMConstants.L1_BAND_NUM; i++) {
             // always skip bands 11 and 15, write band 2 optionally only
             final boolean writeOptionalBands = (i == 1 && outputReflBand2);
             if ((i != 1 && i != 10 && i != 14) || writeOptionalBands) {
@@ -284,7 +282,7 @@ public class ScapeMAtmosCorrOp extends ScapeMMerisBasisOp implements Constants {
                 ProductUtils.copySpectralBandProperties(sourceProduct.getBand(srcBandName), targetBand);
                 targetBand.setUnit("dl");
                 targetBand.setNoDataValueUsed(true);
-                targetBand.setNoDataValue(BAD_VALUE);
+                targetBand.setNoDataValue(ScapeMConstants.BAD_VALUE);
                 bands[i] = targetBand;
             }
         }
@@ -292,7 +290,7 @@ public class ScapeMAtmosCorrOp extends ScapeMMerisBasisOp implements Constants {
     }
 
     private Tile[] getTargetTileGroup(Band[] bands, Map<Band, Tile> targetTiles) {
-        final Tile[] bandRaster = new Tile[L1_BAND_NUM];
+        final Tile[] bandRaster = new Tile[ScapeMConstants.L1_BAND_NUM];
         for (int i = 0; i < bands.length; i++) {
             Band band = bands[i];
             if (band != null) {

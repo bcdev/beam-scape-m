@@ -7,7 +7,7 @@
         <processorDescriptor>
             <executableName>beam.scapeM</executableName>
             <processorName>SCAPE-M</processorName>
-            <processorVersion>1.0-SNAPSHOT</processorVersion>
+            <processorVersion>1.1.1-SNAPSHOT</processorVersion>
             <defaultParameters><![CDATA[<parameters>
     <!-- ***********Scape-M Parameters start here*********** -->
 

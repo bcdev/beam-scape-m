@@ -2,14 +2,13 @@ package org.esa.beam.operator;
 
 import org.esa.beam.ScapeMConstants;
 import org.esa.beam.math.MvFunction;
-import org.esa.beam.meris.l2auxdata.Constants;
 
 /**
  * Representation of TOA minimization function ('minim_TOA' from IDL breadboard)
  *
  * @author olafd
  */
-public class ToaMinimization implements MvFunction, Constants {
+public class ToaMinimization implements MvFunction {
     private double[] chiSquare;
 
     private double visLowerLim;
@@ -37,15 +36,15 @@ public class ToaMinimization implements MvFunction, Constants {
         this.visOld = visOld;
 
         chiSquare = new double[ScapeMConstants.NUM_REF_PIXELS];
-        lpwInt = new double[L1_BAND_NUM];
-        etwInt = new double[L1_BAND_NUM];
-        sabInt = new double[L1_BAND_NUM];
+        lpwInt = new double[ScapeMConstants.L1_BAND_NUM];
+        etwInt = new double[ScapeMConstants.L1_BAND_NUM];
+        sabInt = new double[ScapeMConstants.L1_BAND_NUM];
     }
 
     @Override
     public double f(double[] x) {
-        double[] surfRefl = new double[L1_BAND_NUM];
-        double[][] toa = new double[L1_BAND_NUM][ScapeMConstants.NUM_REF_PIXELS];
+        double[] surfRefl = new double[ScapeMConstants.L1_BAND_NUM];
+        double[][] toa = new double[ScapeMConstants.L1_BAND_NUM][ScapeMConstants.NUM_REF_PIXELS];
 
         double vis = x[10];
 
@@ -70,7 +69,7 @@ public class ToaMinimization implements MvFunction, Constants {
 
                 final double delta = 1.0/(visArrayLUT[visInf + 1] - visArrayLUT[visInf]);
 
-                for (int i = 0; i < L1_BAND_NUM; i++) {
+                for (int i = 0; i < ScapeMConstants.L1_BAND_NUM; i++) {
                     lpwInt[i] = ((lpwArray[i][visInf + 1] - lpwArray[i][visInf]) * vis +
                             lpwArray[i][visInf] * visArrayLUT[visInf + 1] -
                             lpwArray[i][visInf + 1] * visArrayLUT[visInf]) * delta;
@@ -84,7 +83,7 @@ public class ToaMinimization implements MvFunction, Constants {
             }
             for (int j = 0; j < ScapeMConstants.NUM_REF_PIXELS; j++) {
                 chiSquare[j] = 0.0;
-                for (int i = 0; i < L1_BAND_NUM; i++) {
+                for (int i = 0; i < ScapeMConstants.L1_BAND_NUM; i++) {
                     surfRefl[i] = x[2 * j] * rhoVeg[i] + x[2 * j + 1] * ScapeMConstants.RHO_SUE[i];
                     toa[i][j] = lpwInt[i] + surfRefl[i] * etwInt[i] / (Math.PI * (1.0 - sabInt[i] * surfRefl[i]));
                     chiSquare[j] += Math.pow(ScapeMConstants.WL_CENTER_INV[i] * (refPixels[i][j] - toa[i][j]), 2.0);

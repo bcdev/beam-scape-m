@@ -31,6 +31,8 @@
             <includes>
                 <include>*:beam-scape-m*</include>
                 <include>*:beam-idepix*</include>
+                <include>*:beam-meris-brr*</include>
+                <include>*:beam-meris-l2auxdata*</include>
                 <include>*:beam-watermask*</include>
                 <include>*:pamguard*</include>
                 <include>*:commons-math3*</include>
