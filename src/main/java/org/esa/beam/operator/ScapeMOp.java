@@ -45,6 +45,11 @@ public class ScapeMOp extends ScapeMMerisBasisOp {
                defaultValue = "false")
     private boolean useDEM;
 
+    @Parameter(description = "If set, gap filling will not be applied (may be unnecessary in certain cases)",
+               label = "Skip gap filling",
+               defaultValue = "false")
+    private boolean skipGapFilling;
+
     @Parameter(description = "If set, visibility smoothing will not be applied",
                label = "Skip visibility smoothing",
                defaultValue = "false")
@@ -95,10 +100,16 @@ public class ScapeMOp extends ScapeMMerisBasisOp {
         Product cellVisibilityProduct = scapeMVisibilityOp.getTargetProduct();
 
         // fill gaps...
-        final ScapeMGapFillOp scapeMGapFillOp = new ScapeMGapFillOp();
-        scapeMGapFillOp.setSourceProduct("source", sourceProduct);
-        scapeMGapFillOp.setSourceProduct("gap", cellVisibilityProduct);
-        Product gapFilledVisibilityProduct = scapeMGapFillOp.getTargetProduct();
+        Product gapFilledVisibilityProduct;
+        if (skipGapFilling) {
+            gapFilledVisibilityProduct = cellVisibilityProduct;
+        } else {
+            // todo: improve gap filling performance!
+            final ScapeMGapFillOp scapeMGapFillOp = new ScapeMGapFillOp();
+            scapeMGapFillOp.setSourceProduct("source", sourceProduct);
+            scapeMGapFillOp.setSourceProduct("gap", cellVisibilityProduct);
+            gapFilledVisibilityProduct = scapeMGapFillOp.getTargetProduct();
+        }
 
         Product smoothedVisibilityProduct;
         if (skipVisibilitySmoothing) {
