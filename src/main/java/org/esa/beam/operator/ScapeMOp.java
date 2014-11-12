@@ -23,12 +23,12 @@ import java.util.Map;
  *
  * @author Tonio Fincke, Olaf Danne
  */
-@OperatorMetadata(alias = "beam.scapeM", version = "1.1.1-SNAPSHOT",
+@OperatorMetadata(alias = "beam.scapeM", version = "1.1.2-SNAPSHOT",
                   authors = "Luis Guanter, Olaf Danne",
                   copyright = "(c) 2013 University of Valencia, Brockmann Consult",
                   description = "Operator for MERIS atmospheric correction with SCAPE-M algorithm.")
 public class ScapeMOp extends ScapeMMerisBasisOp {
-    public static final String VERSION = "1.1.1-SNAPSHOT";
+    public static final String VERSION = "1.1.2-SNAPSHOT";
 
     //    @Parameter(description = "Compute over all water (not just over lakes)",
 //               label = "Compute over all water (not just over lakes)",

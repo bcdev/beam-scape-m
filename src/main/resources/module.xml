@@ -1,7 +1,7 @@
 <module>
     <manifestVersion>1.0.0</manifestVersion>
     <symbolicName>beam-scape-m</symbolicName>
-    <version>1.1.1-SNAPSHOT</version>
+    <version>1.1.2-SNAPSHOT</version>
     <name>SCAPE-M</name>
 
     <description>
@@ -45,7 +45,7 @@
             <shortDescr>SCAPE-M AC</shortDescr>
             <longDescr>Provides MERIS atmospheric correction with SCAPE-M algorithm.</longDescr>
             <mnemonic/>
-            <parent>tools</parent>
+            <parent>processing.thematicLand</parent>
             <helpId>ScapeMProcessorPlugIn</helpId>
         </action>
     </extension>
